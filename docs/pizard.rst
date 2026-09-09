@@ -8,8 +8,18 @@ pizard (PyMOL)
    pizard a.pdb a.dcd b.pdb b.dcd 3ptb --ref 1ubq
    pizard --help
 
-PyMOL selection syntax: ``resn``, ``resi 145-165``, ``polymer``. Ranges with a
-hyphen are fine here, unlike VMD.
+Selections are PyMOL syntax. Some that work:
+
+.. code-block:: bash
+
+   --ligand "resn LIG"
+   --ligand "resn UNK and not hydro"
+   --ligand "chain B and not polymer"
+   --align  "polymer and name CA"
+   --align  "polymer and name CA and resi 145-165"
+   --align  "polymer and backbone and chain A"
+   --glue   "polymer or resn LIG"
+   --glue   "polymer or resn LIG or resn ZN"
 
 .. note::
 

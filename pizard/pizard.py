@@ -65,8 +65,13 @@ Options (all optional):
 
   --lig and --fit are accepted as aliases for --ligand and --align.
 
-PyMOL selection syntax, NOT VMD's: resn / resi / polymer, and ranges are
-written "resi 145-165".  The VMD side wants "resname" / "resid 145 to 165".
+Selections are PyMOL syntax.  Some that work:
+
+  --ligand "resn LIG"
+  --ligand "chain B and not polymer"
+  --align  "polymer and name CA and resi 145-165"
+  --align  "polymer and backbone and chain A"
+  --glue   "polymer or resn LIG or resn ZN"
 
 DMS and MAE load directly; ~/.pymolrc.py registers the handlers.
 """

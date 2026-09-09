@@ -22,13 +22,29 @@ no-op.
 What each tool supports
 -----------------------
 
-===========  ==========  ===========  ==================================
-Format       VMD read    VMD write    PyMOL
-===========  ==========  ===========  ==================================
-``.pdb``     yes         yes          yes
-``.mae``     yes         **no**       incentive only; reader provided
-``.dms``     **no**      **no**       none; reader and writer provided
-===========  ==========  ===========  ==================================
+.. list-table::
+   :header-rows: 1
+   :widths: 12 22 26 30
+
+   * - Format
+     - VMD, native
+     - PyMOL, native
+     - with viswizard
+   * - ``.pdb``
+     - read, write
+     - read, write
+     - unchanged
+   * - ``.mae``
+     - read only
+     - incentive build only
+     - **write** for VMD; **read and write** for PyMOL
+   * - ``.dms``
+     - not supported
+     - not supported
+     - **read and write** for both
+
+So a ``.mae`` file can be written from VMD, and DMS — which neither program
+knows about — can be read and written from both.
 
 viswizard fills every gap in that table. VMD's Tcl has no ``sqlite3``, so DMS
 cannot be handled in Tcl at all; the VMD side shells out to

@@ -9,8 +9,18 @@ vizard (VMD)
    vizard sys.pdb traj.dcd --ligand "resname LIG" --out movie.mp4
    vizard --help
 
-VMD selection syntax: ``resname``, ``resid 145 to 149``, ``protein``.
-``resid 145-149`` is a syntax error — use ``to``.
+Selections are VMD syntax. Some that work:
+
+.. code-block:: bash
+
+   --ligand "resname LIG"
+   --ligand "resname UNK and not hydrogen"
+   --ligand "chain B and not protein"
+   --align  "protein and name CA"
+   --align  "protein and name CA and resid 145 to 149"
+   --align  "protein and backbone and chain A"
+   --glue   "protein or resname LIG"
+   --glue   "protein or resname LIG or resname ZN"
 
 .. note::
 

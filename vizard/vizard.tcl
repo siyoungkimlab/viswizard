@@ -49,7 +49,13 @@ Examples:
   -args --ligand "resname UNK" --pocket 8
   -args --glue "protein or resname LIG" --align "protein and name CA and resid 145 to 149"
 
-Note: VMD needs "resid 145 to 149".  "resid 145-149" is a syntax error.
+Selections are VMD syntax.  Some that work:
+
+  --ligand "resname LIG"
+  --ligand "chain B and not protein"
+  --align  "protein and name CA and resid 145 to 149"
+  --align  "protein and backbone and chain A"
+  --glue   "protein or resname LIG or resname ZN"
 
 Then, at the vmd> prompt:
 
@@ -112,7 +118,7 @@ proc vizard_main {} {
     #   -args --align "protein and name CA and resid 145 to 149"
     #
     # With no flags at all, everything is taken as the ligand selection.
-    # NOTE: VMD wants "resid 145 to 149"; "resid 145-149" is a syntax error.
+    # Values are VMD selection text, e.g. "protein and name CA and resid 1 to 40".
     if {[info exists argv] && ([lsearch -exact $argv "--help"] >= 0 ||
                                [lsearch -exact $argv "-h"] >= 0)} {
         vizard_help
