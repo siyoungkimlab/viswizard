@@ -58,6 +58,7 @@ bytes on different machines.
 
 Several behaviours in VMD and PyMOL produce wrong output rather than errors —
 `pbc join` without `-bondlist`, a boxless file reporting a 1 × 1 × 1 Å cell,
-`cmd.get_coordset` rows not being ordered by atom index. They are documented in
-[docs/limits.rst](docs/limits.rst) and commented at the point of use. Please
-keep those comments with the code they explain.
+`cmd.get_coordset` rows not being ordered by atom index. Each is commented at
+the point of use, next to the line that works around it. Please keep those
+comments with the code they explain: they are the reason the code looks the
+way it does.

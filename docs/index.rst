@@ -40,9 +40,3 @@ dialect to type.
    pizard
    colors
    formats
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Notes
-
-   limits
