@@ -269,7 +269,11 @@ def _model_to_lists(obj_or_sel):
         })
     bonds = [(min(b.index), max(b.index), getattr(b, "order", 1) or 1)
              for b in m.bond]
-    sym = cmd.get_symmetry(obj_or_sel)
+    # get_symmetry needs exactly one object, but a selection may span several
+    # ("polymer or resn LIG" once more than one structure is loaded). Take the
+    # cell from the first object the selection touches.
+    objs = cmd.get_object_list(obj_or_sel)
+    sym = cmd.get_symmetry(objs[0]) if objs else None
     cell = None
     if sym and all(v > 1e-6 for v in sym[:3]):
         import math
