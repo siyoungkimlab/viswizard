@@ -66,27 +66,15 @@ rest are PyMOL color names; VMD gets the same RGB triples.
 How the order was chosen
 ------------------------
 
-The pairs were selected by searching PyMOL's palette for the set with the
-largest minimum separation between schemes — for cartoons and for ligand
-carbons — then ordered so that consecutive schemes are as far apart as
+The pairs were chosen so that consecutive schemes stay as far apart as
 possible, since molecules 1 and 2 are the pair seen together most often.
-``tests/test_palette.py`` asserts those separations, and that the palette in
-``vizard/align.tcl``, ``pizard/pizard.py`` and ``docs/make_swatches.py`` still
-agree.
 
 Heteroatoms
 -----------
 
 Only carbon is recolored. N, O, S and H keep PyMOL's element colors in both
-tools, because those are better than anything invented for the purpose. In
-PyMOL that is ``util.cnc`` after coloring; in VMD it is the ``Element`` /
-``Name`` / ``Type`` color categories.
+tools.
 
-.. note::
-
-   VMD has only three independent color categories, so three molecules can
-   have their own ligand-carbon color. A fourth falls back to a solid color
-   and loses element colors on its heteroatoms. PyMOL has no such limit.
 
 The schemes
 -----------
