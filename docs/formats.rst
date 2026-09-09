@@ -30,20 +30,6 @@ What each tool supports
      - not supported
      - **read and write** for both
 
-So a ``.mae`` file can be written from VMD, and DMS — which neither program
-knows about — can be read and written from both.
-
-viswizard fills every gap in that table. VMD's Tcl has no ``sqlite3``, so DMS
-cannot be handled in Tcl at all; the VMD side shells out to
-``pizard/formats.py``, which also runs standalone:
-
-.. code-block:: bash
-
-   python3 ~/viswizard/pizard/formats.py in.dms out.mae
-
-``vizard file.dms`` converts on the way in automatically, caching the result
-in ``~/.viswizard_cache``.
-
 In a VMD session
 ----------------
 
