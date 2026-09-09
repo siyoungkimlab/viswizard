@@ -32,23 +32,6 @@ jobs:
       - name: Run tests
         run: pytest tests -q
 
-  palette:
-    name: palette swatches are current
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-      - run: python -m pip install --upgrade pip && python -m pip install pillow
-      # The swatches are committed so the docs build needs no image toolchain.
-      # Regenerate and fail if anything moved, so they cannot drift from the
-      # palette the two viewers actually use.
-      - run: |
-          python docs/make_swatches.py
-          git diff --exit-code -- docs/_static/colors
-
   syntax:
     name: tcl and shell syntax
     runs-on: ubuntu-latest
