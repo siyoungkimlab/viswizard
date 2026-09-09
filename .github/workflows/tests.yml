@@ -56,3 +56,20 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r docs/requirements.txt
       - run: python -m sphinx -b html -W docs docs/_build/html
+
+  all:
+    name: all checks
+    if: always()
+    needs: [tests, syntax, docs]
+    runs-on: ubuntu-latest
+    steps:
+      # One stable context for branch protection to require, so the test
+      # matrix can change without reconfiguring the protected branch.
+      - name: Verify every job succeeded
+        run: |
+          echo "tests:  ${{ needs.tests.result }}"
+          echo "syntax: ${{ needs.syntax.result }}"
+          echo "docs:   ${{ needs.docs.result }}"
+          [ "${{ needs.tests.result }}" = "success" ] \
+            && [ "${{ needs.syntax.result }}" = "success" ] \
+            && [ "${{ needs.docs.result }}" = "success" ]
