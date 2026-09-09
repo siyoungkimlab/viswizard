@@ -1,0 +1,10 @@
+/* Swatch images are drawn on the same ground as the page; keep them flush. */
+img[src*="_static/colors/"] {
+    display: block;
+    margin: 0.6rem 0 1.2rem 0;
+    border-radius: 6px;
+    max-width: 100%;
+}
+:root { color-scheme: dark; }
+table.docutils td, table.docutils th { padding: 0.35rem 0.7rem; }
+code.literal { white-space: nowrap; }

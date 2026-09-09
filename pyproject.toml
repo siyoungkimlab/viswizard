@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "viswizard"
+version = "0.1.0"
+description = "VMD and PyMOL toolkit for protein-ligand molecular dynamics"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Siyoung Kim", email = "kkssy141@gmail.com" }]
+keywords = ["molecular-dynamics", "vmd", "pymol", "visualization", "pbc"]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+# The Python here runs inside PyMOL, or standalone as a format converter, so
+# the only hard dependency is numpy. PyMOL itself is not installable from PyPI.
+dependencies = ["numpy>=1.21"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "pillow>=10", "sphinx>=7", "furo>=2024.1.29"]
+
+[project.urls]
+Homepage = "https://github.com/siyoungkimlab/viswizard"
+Documentation = "https://viswizard.readthedocs.io"
+
+# Not an importable package: vizard/ is Tcl and pizard/ is loaded by PyMOL
+# from a path, not imported as a package.
+[tool.setuptools]
+packages = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
