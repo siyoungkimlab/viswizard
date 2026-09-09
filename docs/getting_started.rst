@@ -1,8 +1,8 @@
 Getting started
 ===============
 
-``vizard`` drives **VMD**. ``pizard`` drives **PyMOL**. They take the same
-options; only the selection language differs.
+``vizard`` is a VMD wizard and ``pizard`` is a PyMOL wizard! It helps
+visualizing trajectories with various useful functions.
 
 Install
 -------
