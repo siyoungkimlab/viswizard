@@ -112,7 +112,10 @@ interp alias {} movie {} vizard_movie
 
 # ---- batch mode: only when --out was passed on the command line ----------
 if {[info exists argv] && [lsearch -exact $argv "--out"] >= 0} {
-    if {[info commands glue_traj] eq ""} {
+    # Guard on vizard_main, not glue_traj: ~/.vmdrc sources glue.tcl into every
+    # session, so glue_traj always exists and vizard.tcl would never be sourced
+    # here -- leaving nothing loaded to render.
+    if {[info commands vizard_main] eq ""} {
         set cands {}
         if {[info exists env(VIZARD_DIR)]} { lappend cands $env(VIZARD_DIR) }
         catch { lappend cands [file dirname [file normalize [info script]]] }

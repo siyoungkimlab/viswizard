@@ -1,6 +1,9 @@
 Getting started
 ===============
 
+``vizard`` drives **VMD**. ``pizard`` drives **PyMOL**. They take the same
+options; only the selection language differs.
+
 Install
 -------
 
@@ -22,61 +25,129 @@ makes molecules whole, keeps the ligand with its protein, wraps everything
 else, and fits the trajectory — in that order, since re-wrapping after a fit
 would undo it.
 
-First run
----------
+Examples
+--------
+
+A trajectory, in either viewer:
 
 .. code-block:: bash
 
    vizard equilibrated.pdb trajectory.dcd --ligand "resname LIG"
+   pizard equilibrated.pdb trajectory.dcd --ligand "resn LIG"
 
-.. code-block:: text
-
-   vizard: ligand 'resname LIG'                     38 atoms
-   vizard: glue   'protein or (resname LIG)'      3241 atoms
-   vizard: align  'protein and name CA'            201 atoms
-   glue: processed 10 frames in 0.34 s (34 ms/frame)
-   vizard: OK -- 621 protein/ligand contacts within 5 A in frame 0
-
-Several systems at once
------------------------
-
-A structure — or a bare four-character PDB id — starts a new molecule, and any
-trajectories after it attach to it. Each gets its own color and is superposed
-onto the first.
+A single structure, when there is no trajectory to play:
 
 .. code-block:: bash
 
-   vizard a.pdb a.dcd b.pdb b.dcd 3ptb --ligand "resname LIG" --ref 1ubq
-   pizard a.pdb a.dcd b.pdb b.dcd 3ptb --ligand "resn LIG"    --ref 1ubq
+   vizard complex.pdb --ligand "resname LIG"
 
-``--ref`` places the first system on a reference structure, given as a file or
-a PDB id. Residue numbering need not match.
+Formats VMD cannot open by itself — the DMS is converted on the way in:
+
+.. code-block:: bash
+
+   vizard system.dms trajectory.dcd --ligand "resname LIG"
+   vizard system.mae trajectory.dcd --ligand "resname LIG"
+
+Two trajectories overlaid, each in its own color, the second superposed onto
+the first:
+
+.. code-block:: bash
+
+   vizard a.pdb a.dcd b.pdb b.dcd --ligand "resname LIG"
+
+Compare against a crystal structure by fetching it. A bare four-character PDB
+id is loaded as another molecule; ``--ref`` instead places the trajectory onto
+that structure:
+
+.. code-block:: bash
+
+   vizard sys.pdb traj.dcd 3ptb --ligand "resname LIG"
+   vizard sys.pdb traj.dcd --ligand "resname LIG" --ref 3ptb
+
+When the binding site matters more than the whole protein, fit on it and widen
+the pocket:
+
+.. code-block:: bash
+
+   vizard sys.pdb traj.dcd --align "protein and name CA and resid 145 to 149" \
+                           --pocket 8
+
+Straight to a video, without opening a session:
+
+.. code-block:: bash
+
+   vizard sys.pdb traj.dcd --ligand "resname LIG" --out movie.mp4
+   vizard sys.pdb traj.dcd --ligand "resname LIG" --out movie.mp4 \
+          --size 1920 1080 --fps 30 --step 5
 
 Options
 -------
 
 .. list-table::
    :header-rows: 1
-   :widths: 14 30 40
+   :widths: 16 20 20 34
 
-   * - Flag
-     - Default
-     - Meaning
-   * - ``--ligand``
-     - ``resname LIG`` / ``resn LIG``
-     - reps, coloring, pocket, view center
+   * - Option
+     - ``vizard`` (VMD)
+     - ``pizard`` (PyMOL)
+     - When to use it
+   * - ``--ligand``, ``--lig``
+     - ``resname LIG``
+     - ``resn LIG``
+     - whenever the ligand is not called ``LIG``
    * - ``--glue``
      - ``protein or (<ligand>)``
-     - held together across the boundary
-   * - ``--align``
-     - ``... and name CA``
-     - what the fit is computed on
+     - ``polymer or (<ligand>)``
+     - to hold more than the ligand together — a cofactor, a metal, a
+       second chain
+   * - ``--align``, ``--fit``
+     - ``protein and name CA``
+     - ``polymer and name CA``
+     - to fit on a domain or a loop instead of the whole protein
    * - ``--pocket``
      - ``6``
-     - pocket residue cutoff, ångström
+     - ``6``
+     - to show more or less of the binding site, in ångström
    * - ``--ref``
      - –
-     - reference file or PDB id
+     - –
+     - to place the trajectory onto a reference; a file or a PDB id
+   * - ``--object``
+     - not available
+     - ``sys``
+     - to name the PyMOL object something other than ``sys``
    * - ``--out``
      - –
-     - render a video (VMD only)
+     - not available
+     - to render a video instead of opening a session
+   * - ``--size``
+     - ``1280 720``
+     - not available
+     - with ``--out``, to set the frame size
+   * - ``--fps``
+     - ``24``
+     - not available
+     - with ``--out``, to set the playback rate
+   * - ``--step``
+     - ``1``
+     - not available
+     - with ``--out``, to render every Nth frame for a quick preview
+   * - ``--zoom``
+     - ``1``
+     - not available
+     - with ``--out``, to tighten the framing
+   * - ``--keep``
+     - ``0``
+     - not available
+     - with ``--out``, to keep the intermediate frames
+   * - ``--reframe``
+     - ``1``
+     - not available
+     - with ``--out``, ``0`` renders the view as it stands
+   * - ``--help``, ``-h``
+     - –
+     - –
+     - to print this list and exit
+
+VMD's own flags pass through as well, so ``vizard -dispdev text ...`` runs
+headless.
