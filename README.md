@@ -1,5 +1,9 @@
 # viswizard
 
+[![Tests](https://github.com/siyoungkimlab/viswizard/actions/workflows/tests.yml/badge.svg)](https://github.com/siyoungkimlab/viswizard/actions/workflows/tests.yml)
+[![Documentation](https://readthedocs.org/projects/viswizard/badge/?version=latest)](https://viswizard.readthedocs.io/en/latest/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A VMD and PyMOL toolkit for protein–ligand molecular dynamics. It keeps a
 ligand with its protein across periodic boundaries, aligns the trajectory, and
 sets up a view worth looking at — from one command line.
