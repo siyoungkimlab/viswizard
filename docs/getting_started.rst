@@ -9,40 +9,18 @@ Install
    git clone https://github.com/siyoungkimlab/viswizard.git ~/viswizard
    bash ~/viswizard/install.sh
 
-That creates ``~/.local/bin/vizard`` and ``~/.local/bin/pizard``, and writes a
-marked block into ``~/.vmdrc`` and ``~/.pymolrc.py`` so the in-session commands
-and the DMS/MAE handlers are available everywhere. Re-running it is safe: the
-blocks are replaced between ``# >>> viswizard >>>`` markers rather than
-appended.
+That creates ``~/.local/bin/vizard`` and ``~/.local/bin/pizard``, and registers
+the in-session commands and the DMS/MAE handlers with VMD and PyMOL.
+Re-running it is safe.
 
-.. note::
-
-   A user ``~/.vmdrc`` is read *instead of* VMD's own, and VMD's own is where
-   ``menu main on`` lives. ``install.sh`` therefore sources VMD's defaults
-   first; without that you get a render window and no Main menu.
-
-The problem it solves
----------------------
+What it does
+------------
 
 In a periodic simulation a ligand that is not bonded to its protein wraps
-independently, so it jumps from one side of the box to the other between
-frames. Nothing in VMD keeps two unbonded molecules together, and re-wrapping
-after an alignment undoes the alignment. viswizard does the four steps in the
-only order that works: make molecules whole, glue the ligand to the protein,
-wrap everything else, then fit — fitting last, and to a reference that has
-itself been made whole.
-
-On a 32k-atom box, before and after:
-
-==============  ===================  ==================
-Frame           Protein–ligand       Cα RMSD
-==============  ===================  ==================
-raw             1.7 – 67.1 Å         up to 68.7 Å
-processed       1.74 – 2.14 Å        0.83 – 1.23 Å
-==============  ===================  ==================
-
-The residual RMSD is real conformational drift; the rigid-body tumbling and
-box-hopping are gone.
+independently of it, so it jumps across the box between frames. viswizard
+makes molecules whole, keeps the ligand with its protein, wraps everything
+else, and fits the trajectory — in that order, since re-wrapping after a fit
+would undo it.
 
 First run
 ---------
@@ -59,10 +37,6 @@ First run
    glue: processed 10 frames in 0.34 s (34 ms/frame)
    vizard: OK -- 621 protein/ligand contacts within 5 A in frame 0
 
-Every line is a checkpoint. If a step fails you get ``vizard: FAILED -- ...``
-instead of a silently wrong picture, which matters because VMD's ``-e`` does
-not stop on error.
-
 Several systems at once
 -----------------------
 
@@ -75,12 +49,11 @@ onto the first.
    vizard a.pdb a.dcd b.pdb b.dcd 3ptb --ligand "resname LIG" --ref 1ubq
    pizard a.pdb a.dcd b.pdb b.dcd 3ptb --ligand "resn LIG"    --ref 1ubq
 
-``--ref`` positions the first system: the trajectory is fitted internally
-first, then placed onto the reference by structural or sequence alignment, so
-residue numbering need not match.
+``--ref`` places the first system on a reference structure, given as a file or
+a PDB id. Residue numbering need not match.
 
-Common options
---------------
+Options
+-------
 
 .. list-table::
    :header-rows: 1

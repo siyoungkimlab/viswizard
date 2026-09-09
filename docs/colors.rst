@@ -66,28 +66,13 @@ rest are PyMOL color names; VMD gets the same RGB triples.
 How the order was chosen
 ------------------------
 
-Not by eye. Every ``(deep, light)`` pair combination in PyMOL's palette was
-scored by the *minimum* separation between schemes — for cartoons and for
-ligand carbons — and the winning set was then ordered to maximize the smallest
-gap between **consecutive** schemes, since molecules 1 and 2 are the pair you
-actually see together most often.
-
-===================================  =========
-Measure                              Value
-===================================  =========
-Worst adjacent pair (as ordered)     0.44
-Worst pair anywhere in the set       0.20
-===================================  =========
-
-For comparison, a hand-picked palette this replaced had schemes 0 and 1 only
-**0.29** apart in RGB — two dark, muted colors that read as the same thing on
-a black background. An earlier attempt also paired ``chocolate`` with
-``firebrick`` at 0.17, which no one would notice until two overlaid structures
-turned out to be indistinguishable.
-
-``tests/test_palette.py`` asserts both thresholds, and that the palette in
+The pairs were selected by searching PyMOL's palette for the set with the
+largest minimum separation between schemes — for cartoons and for ligand
+carbons — then ordered so that consecutive schemes are as far apart as
+possible, since molecules 1 and 2 are the pair seen together most often.
+``tests/test_palette.py`` asserts those separations, and that the palette in
 ``vizard/align.tcl``, ``pizard/pizard.py`` and ``docs/make_swatches.py`` still
-agree — the three places it is written down.
+agree.
 
 Heteroatoms
 -----------
@@ -161,7 +146,6 @@ Overriding
 
    reps 0 -color 26 -proteincolor 17     ;# VMD: any ColorID
 
-Cartoon color is set on the *object* (``cartoon_color`` in PyMOL, a per-rep
-``ColorID`` in VMD), never by coloring atoms. Coloring pocket atoms would
-recolor the cartoon drawn from those same residues — which once put a bright
-cyan patch in the middle of a grey protein.
+Cartoon color is set on the object rather than by coloring atoms, so the
+pocket and ligand colors do not bleed into the cartoon drawn from the same
+residues.

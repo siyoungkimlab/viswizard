@@ -22,12 +22,7 @@ Selections are VMD syntax. Some that work:
    --glue   "protein or resname LIG"
    --glue   "protein or resname LIG or resname ZN"
 
-.. note::
-
-   Files are passed to the script rather than to VMD, because VMD puts every
-   file given on its command line into a *single* molecule, which is wrong for
-   several systems. Passing VMD's own flags still works:
-   ``vizard -dispdev text ...``.
+VMD's own flags still work: ``vizard -dispdev text ...``.
 
 In a session
 ------------
@@ -57,14 +52,8 @@ session Tk is loaded and ``focus`` is Tk's own keyboard-focus command.
 Framing
 -------
 
-``view`` does exactly what you would do by hand: switch off the other
-representations, press ``=``, switch them back on. ``display resetview`` fits
-whatever is *displayed*, which is why hiding the cartoon first frames on the
-ligand and pocket instead of the whole protein.
-
-It preserves your orientation. ``display resetview`` on its own also resets
-the rotation, so zooming to a ligand would throw away however you had turned
-the molecule.
+``view`` frames on the representations you name and leaves the rest alone,
+keeping your current orientation.
 
 Movies
 ------
@@ -76,9 +65,8 @@ Movies
    vizard_movie -out preview.mp4 -step 10       ; # every 10th frame
    vizard_movie -h
 
-Frames are rendered with Tachyon's in-memory renderer — no scene files — and
-muxed with ffmpeg. It works headless: ``-dispdev text`` renders fine. Budget
-roughly 1.2 s/frame at 640×360 and 1.7 s/frame at 960×540.
+Rendering is done by Tachyon in memory and muxed with ffmpeg, and works
+headless. Budget roughly 1.2 s/frame at 640×360 and 1.7 s/frame at 960×540.
 
 The batch form takes ``--out`` on the command line and renders without opening
 a session.
@@ -91,37 +79,16 @@ Superposition
    mm 1 0                                  ; # move molid 1 onto molid 0
    mm 1 0 -cutoff 1.0 -sel "protein and name CA and resid 1 to 40"
 
-``vizard_matchmaker`` aligns the two *sequences* first, so residue numbering,
-gaps and different chain lengths are all fine — the thing VMD's ``measure
-fit`` cannot do, since it needs equal atom counts in matching order. It then
-fits the matched Cα pairs and re-fits while dropping outliers past
-``-cutoff``.
-
-It does not refuse nonsense. Unrelated proteins still produce a transform, so
-it warns when the match is poor:
-
-.. code-block:: text
-
-   vizard_matchmaker: 201 vs 76 CA -> 36 aligned, 36 kept, rmsd 16.0829 A
-   vizard_matchmaker: WARNING -- only 47% of the shorter chain matched and
-                      rmsd is 16.1 A; are these the same protein?
+``vizard_matchmaker`` aligns the two sequences first, so residue numbering,
+gaps and different chain lengths are all fine. It then fits the matched Cα
+pairs and re-fits while dropping outliers past ``-cutoff``, reporting how many
+residues matched and the final RMSD — judge the result by those two numbers,
+since unrelated proteins still produce a transform.
 
 Speed
 -----
 
-``pbc join`` is the whole cost of gluing, and it is per-fragment: making ~9700
-waters whole dominates everything else. ``-join`` therefore defaults to the
-glue selection rather than the whole system.
-
-=================================  ==========
-Step (32k atoms, 10 frames)        Time
-=================================  ==========
-``pbc join``, all fragments        22 247 ms
-``pbc join``, glue selection only     383 ms
-``pbc wrap`` (water and ions)          55 ms
-``measure fit`` and move                1 ms
-=================================  ==========
-
-22.3 s to 0.4 s, identical output. Pass ``-join all`` if you render solvent.
-Removing water from the files buys only about 8 % more — do that for file size
-and memory with ``glue_strip`` (9× smaller here), not for glue speed.
+Making molecules whole is the whole cost of gluing, and it is per-fragment, so
+``-join`` defaults to the glue selection rather than the whole system — about
+40 ms/frame on a 32k-atom box. Pass ``-join all`` if you render solvent.
+``glue_strip`` writes a solute-only trajectory, roughly 9× smaller.

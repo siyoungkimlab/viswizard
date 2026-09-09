@@ -36,18 +36,11 @@ DMS/MAE handlers exist everywhere. Re-running it is safe.
 ## What it does
 
 In a periodic simulation a ligand that is not bonded to its protein wraps
-independently, so it jumps across the box between frames. Nothing in VMD keeps
-two unbonded molecules together, and re-wrapping after an alignment undoes the
-alignment. viswizard does the four steps in the only order that works: make
-molecules whole, glue the ligand to the protein, wrap everything else, then
-fit — fitting last, to a reference that has itself been made whole.
+independently of it, so it jumps across the box between frames. viswizard
+makes molecules whole, keeps the ligand with its protein, wraps everything
+else, and fits the trajectory — in that order, since re-wrapping after a fit
+would undo it.
 
-| | Protein–ligand | Cα RMSD |
-|---|---|---|
-| raw | 1.7 – 67.1 Å | up to 68.7 Å |
-| processed | 1.74 – 2.14 Å | 0.83 – 1.23 Å |
-
-The residual RMSD is real conformational drift.
 
 ## Highlights
 
