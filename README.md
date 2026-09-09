@@ -53,7 +53,7 @@ The residual RMSD is real conformational drift.
 
 - **Several systems at once.** A structure — or a bare four-character PDB id —
   starts a new molecule, and trajectories after it attach to it. Each gets its
-  own colour and is superposed onto the first.
+  own color and is superposed onto the first.
   ```bash
   vizard a.pdb a.dcd b.pdb b.dcd 3ptb --ligand "resname LIG" --ref 1ubq
   ```
@@ -65,8 +65,8 @@ The residual RMSD is real conformational drift.
 - **Sequence-based superposition for VMD.** `mm 1 0` aligns by sequence first,
   so residue numbering need not match — which `measure fit` cannot do.
 - **A palette built for overlays.** Eight schemes, each one hue: dark cartoon,
-  bright ligand carbons, with element colours preserved for heteroatoms. See
-  [the colour page](https://viswizard.readthedocs.io/en/latest/colors.html).
+  bright ligand carbons, with element colors preserved for heteroatoms. See
+  [the color page](https://viswizard.readthedocs.io/en/latest/colors.html).
 
 ## Requirements
 

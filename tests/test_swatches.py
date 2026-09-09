@@ -1,7 +1,7 @@
-"""The committed swatch images really do show the documented colours.
+"""The committed swatch images really do show the documented colors.
 
 Comparing the PNGs byte for byte does not work: the label font differs between
-platforms, so the same palette renders to different bytes. Sample the colour
+platforms, so the same palette renders to different bytes. Sample the color
 blocks instead, which is what the image is actually for.
 """
 import importlib.util
@@ -43,12 +43,12 @@ def test_no_stale_images():
 
 
 @pytest.mark.parametrize("i", range(8))
-def test_swatch_blocks_carry_the_palette_colours(i):
-    name, *colours = MS.PALETTE[i]
+def test_swatch_blocks_carry_the_palette_colors(i):
+    name, *colors = MS.PALETTE[i]
     img = Image.open(os.path.join(COLORS, "scheme%d_%s.png" % (i, name))).convert("RGB")
     cw = (MS.W - 4 * MS.PAD) // 3
     y = (MS.PAD + MS.H - MS.PAD - 16) // 2
-    for j, want in enumerate(colours):
+    for j, want in enumerate(colors):
         x = MS.PAD + j * (cw + MS.PAD) + cw // 2
         assert img.getpixel((x, y)) == want, (
             "block %d of scheme %d (%s) is %s, expected %s"
@@ -59,9 +59,9 @@ def test_palette_strip_rows():
     img = Image.open(os.path.join(COLORS, "palette.png")).convert("RGB")
     rh = 34
     cw = (MS.W - 110 - 4 * MS.PAD) // 3
-    for r, (name, *colours) in enumerate(MS.PALETTE):
+    for r, (name, *colors) in enumerate(MS.PALETTE):
         y = MS.PAD + r * rh + rh // 2 - 2
-        for j, want in enumerate(colours):
+        for j, want in enumerate(colors):
             x = 100 + MS.PAD + j * (cw + MS.PAD) + cw // 2
             assert img.getpixel((x, y)) == want, (
                 "row %d block %d is %s, expected %s"

@@ -22,15 +22,15 @@ vizard -- glue a ligand to its protein across PBC, align, and set up a view.
   vizard file [file ...] [options]
 
 A structure -- or a bare 4-character PDB id -- starts a new molecule, and any
-trajectories after it attach to it.  Each molecule gets its own colour and is
+trajectories after it attach to it.  Each molecule gets its own color and is
 superposed onto the first:
 
   vizard a.pdb a.dcd b.pdb b.dcd 3ptb --ligand "resname LIG" --ref 1ubq
 
 Options (all optional; values may contain spaces):
 
-  --ligand SEL   ligand selection, used for reps, colouring, pocket and the
-                 view centre                      (default "resname LIG")
+  --ligand SEL   ligand selection, used for reps, coloring, pocket and the
+                 view center                      (default "resname LIG")
   --glue SEL     what is held together across the periodic boundary
                                                   (default "protein or (<ligand>)")
   --align SEL    what the trajectory is fitted on (default "protein and name CA")
@@ -73,7 +73,7 @@ Then, at the vmd> prompt:
   pick on                            shift + left-click an atom to focus it
   movie -out movie.mp4               render a video (alias: vizard_movie)
 
-Each fetched molecule gets its own colour pair: a muted protein and a bright
+Each fetched molecule gets its own color pair: a muted protein and a bright
 ligand, so several structures stay distinguishable.
 }
 }
@@ -292,7 +292,7 @@ proc vizard_main {} {
     }
 
     if {[llength $mols] > 1} {
-        # several systems: give each its own colour scheme rather than the
+        # several systems: give each its own color scheme rather than the
         # single-molecule look, so they can be told apart
         display projection Orthographic
         display rendermode GLSL
@@ -316,7 +316,7 @@ proc vizard_main {} {
         # darken -- the classic VMD look.  For a publication-style white figure,
         # set Background to white AND change Element/Name H to gray, or the
         # hydrogens vanish.  Everything below is cosmetic and safe to delete.
-        # Depth cueing fogs toward the background colour -- tune with
+        # Depth cueing fogs toward the background color -- tune with
         # "display cuemode Linear|Exp|Exp2", cuedensity, cuestart, cueend.
         display projection Orthographic
         display rendermode GLSL
@@ -331,10 +331,10 @@ proc vizard_main {} {
         color Display Background black
         axes location Off
 
-        # VMD has no "salmon" among its 33 colours, so redefine ColorID 9 ("pink",
+        # VMD has no "salmon" among its 33 colors, so redefine ColorID 9 ("pink",
         # the nearest hue and rarely used elsewhere) to salmon #FA8072, then point
         # the Element category's carbon at it.  Element and Name are independent
-        # categories, so the pocket (coloured by Name) keeps ordinary cyan carbons.
+        # categories, so the pocket (colored by Name) keeps ordinary cyan carbons.
         #
         # NOTE: do NOT split the ligand into "and carbon" / "and not carbon" reps.
         # Licorice draws a bond only when BOTH atoms fall in the same rep, so every
@@ -409,7 +409,7 @@ proc vizard_main {} {
     }
     # make vizard_movie available at the vmd> prompt
     puts "vizard: ready -- [molinfo top get numframes] frames,\
-          view centred on '$ligsel'"
+          view centered on '$ligsel'"
     if {[info commands vizard_movie] ne ""} {
         puts "vizard: type  vizard_movie -out movie.mp4   to render a video"
     }

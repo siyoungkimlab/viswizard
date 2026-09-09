@@ -52,7 +52,7 @@ in PyMOL.  (vizard is the same thing for VMD.)
          --align "polymer and name CA and resi 145-165"
 
 Options (all optional):
-  --ligand SEL   ligand selection: reps, colouring, pocket, view centre
+  --ligand SEL   ligand selection: reps, coloring, pocket, view center
                                                    (default "resn LIG")
   --glue SEL     held together across the periodic boundary
                                                    (default "polymer or (<ligand>)")
@@ -189,17 +189,17 @@ def main(argv=None):
     cmd.set("ambient_occlusion_mode", 1)
     cmd.set("valence", 1)
 
-    # PyMOL's own element colours (C/N/O/S/H) are nicer than anything I would
-    # invent, so colour every atom with the scheme's carbon colour and then let
-    # util.cnc restore the element colours for the non-carbons.
+    # PyMOL's own element colors (C/N/O/S/H) are nicer than anything I would
+    # invent, so color every atom with the scheme's carbon color and then let
+    # util.cnc restore the element colors for the non-carbons.
     #
-    # cartoon_color is set on the OBJECT, not by colouring atoms: colouring
-    # pocket atoms would recolour the cartoon drawn from those same residues.
-    # PyMOL's named colours are either saturated (forest, teal) or pale
+    # cartoon_color is set on the OBJECT, not by coloring atoms: coloring
+    # pocket atoms would recolor the cartoon drawn from those same residues.
+    # PyMOL's named colors are either saturated (forest, teal) or pale
     # (palegreen); the muted mid-darks a cartoon wants are not in the set, so
     # define them.  One hue per object: dark cartoon, mid pocket, bright ligand.
-    # PyMOL's own palette, not colours I invented.  The eight pairs were chosen
-    # by searching every (deep, light) combination for the one that maximises
+    # PyMOL's own palette, not colors I invented.  The eight pairs were chosen
+    # by searching every (deep, light) combination for the one that maximizes
     # the minimum separation between schemes -- both between cartoons AND
     # between ligand carbons -- then ordered so consecutive molecules are as
     # far apart as possible.  My previous hand-picked set had molecules 1 and 2

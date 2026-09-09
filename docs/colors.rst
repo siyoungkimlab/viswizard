@@ -1,13 +1,13 @@
-Colour schemes
+Color schemes
 ==============
 
 Molecules loaded together must not look alike. Each gets one hue: a **dark
 cartoon**, a **mid-tone for the pocket carbons**, and a **bright ligand
-carbon** colour, so a ligand obviously belongs to its own protein while still
+carbon** color, so a ligand obviously belongs to its own protein while still
 catching the eye.
 
 .. image:: _static/colors/palette.png
-   :alt: the eight colour schemes, cartoon then pocket then ligand
+   :alt: the eight color schemes, cartoon then pocket then ligand
 
 .. list-table::
    :header-rows: 1
@@ -61,14 +61,14 @@ catching the eye.
 
 The values are PyMOL's own palette, ported to VMD so both tools render
 identically. ``forest``/``palegreen``, ``raspberry``/``lightpink`` and the
-rest are PyMOL colour names; VMD gets the same RGB triples.
+rest are PyMOL color names; VMD gets the same RGB triples.
 
 How the order was chosen
 ------------------------
 
 Not by eye. Every ``(deep, light)`` pair combination in PyMOL's palette was
 scored by the *minimum* separation between schemes — for cartoons and for
-ligand carbons — and the winning set was then ordered to maximise the smallest
+ligand carbons — and the winning set was then ordered to maximize the smallest
 gap between **consecutive** schemes, since molecules 1 and 2 are the pair you
 actually see together most often.
 
@@ -80,7 +80,7 @@ Worst pair anywhere in the set       0.20
 ===================================  =========
 
 For comparison, a hand-picked palette this replaced had schemes 0 and 1 only
-**0.29** apart in RGB — two dark, muted colours that read as the same thing on
+**0.29** apart in RGB — two dark, muted colors that read as the same thing on
 a black background. An earlier attempt also paired ``chocolate`` with
 ``firebrick`` at 0.17, which no one would notice until two overlaid structures
 turned out to be indistinguishable.
@@ -92,16 +92,16 @@ agree — the three places it is written down.
 Heteroatoms
 -----------
 
-Only carbon is recoloured. N, O, S and H keep PyMOL's element colours in both
+Only carbon is recolored. N, O, S and H keep PyMOL's element colors in both
 tools, because those are better than anything invented for the purpose. In
-PyMOL that is ``util.cnc`` after colouring; in VMD it is the ``Element`` /
-``Name`` / ``Type`` colour categories.
+PyMOL that is ``util.cnc`` after coloring; in VMD it is the ``Element`` /
+``Name`` / ``Type`` color categories.
 
 .. note::
 
-   VMD has only three independent colour categories, so three molecules can
-   have their own ligand-carbon colour. A fourth falls back to a solid colour
-   and loses element colours on its heteroatoms. PyMOL has no such limit.
+   VMD has only three independent color categories, so three molecules can
+   have their own ligand-carbon color. A fourth falls back to a solid color
+   and loses element colors on its heteroatoms. PyMOL has no such limit.
 
 The schemes
 -----------
@@ -161,7 +161,7 @@ Overriding
 
    reps 0 -color 26 -proteincolor 17     ;# VMD: any ColorID
 
-Cartoon colour is set on the *object* (``cartoon_color`` in PyMOL, a per-rep
-``ColorID`` in VMD), never by colouring atoms. Colouring pocket atoms would
-recolour the cartoon drawn from those same residues — which once put a bright
+Cartoon color is set on the *object* (``cartoon_color`` in PyMOL, a per-rep
+``ColorID`` in VMD), never by coloring atoms. Coloring pocket atoms would
+recolor the cartoon drawn from those same residues — which once put a bright
 cyan patch in the middle of a grey protein.

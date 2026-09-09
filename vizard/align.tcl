@@ -134,25 +134,25 @@ proc vizard_matchmaker {mob ref args} {
 #   vizard_reps 0
 #   vizard_reps 1 -ligand "resname BEN" -pocket 5
 #
-# Each molid gets its own carbon colour so several structures stay
-# distinguishable.  VMD's Element/Name colour categories are global, so a
-# per-molecule carbon colour cannot come from them: instead the whole
+# Each molid gets its own carbon color so several structures stay
+# distinguishable.  VMD's Element/Name color categories are global, so a
+# per-molecule carbon color cannot come from them: instead the whole
 # molecule is drawn in its ColorID and the heteroatoms are overlaid as
-# slightly fatter spheres coloured by element.  Drawing the ligand as one
+# slightly fatter spheres colored by element.  Drawing the ligand as one
 # rep (rather than splitting carbon/non-carbon) keeps every bond drawn.
 ############################################################
 
 # Paired palettes, one pair per molecule: a muted protein and a bright
-# ligand-carbon colour of the same hue.
+# ligand-carbon color of the same hue.
 #
-# VMD's stock 33 colours are saturated and unpleasant for carbons, so these
+# VMD's stock 33 colors are saturated and unpleasant for carbons, so these
 # are redefined to a soft, figure-friendly set.  Only ColorIDs 17-32 are
 # touched -- the "2"/"3" variants nothing uses by default.  IDs 0-16 carry the
-# Element, Name and Structure category colours (C=cyan, N=blue, O=red,
+# Element, Name and Structure category colors (C=cyan, N=blue, O=red,
 # S=yellow, helix=purple ...) and are left alone, so heteroatoms and
-# secondary-structure colouring are unaffected.
+# secondary-structure coloring are unaffected.
 #
-# Side effect: the GUI colour menu still calls ID 18 "yellow3" etc. while it
+# Side effect: the GUI color menu still calls ID 18 "yellow3" etc. while it
 # now renders salmon.  Nothing reads those names.
 
 proc vizard_define_colors {} {
@@ -195,7 +195,7 @@ proc vizard_reps {molid args} {
 
     set pal [vizard_palette]
     # assign schemes in the order molecules are set up, so deleting and
-    # reloading does not make the colours jump around with the molid
+    # reloading does not make the colors jump around with the molid
     if {![info exists ::vizard_scheme($molid)]} {
         if {![info exists ::vizard_scheme_next]} { set ::vizard_scheme_next 0 }
         set ::vizard_scheme($molid) $::vizard_scheme_next
@@ -238,10 +238,10 @@ proc vizard_reps {molid args} {
     mol addrep $molid
 
     if {$nlig > 0} {
-        # Element, Name and Type are three INDEPENDENT global colour
-        # categories that all default to the same element colours.  Giving
-        # each molecule its own category lets its carbons be recoloured
-        # without touching the others -- one rep, real element colours for
+        # Element, Name and Type are three INDEPENDENT global color
+        # categories that all default to the same element colors.  Giving
+        # each molecule its own category lets its carbons be recolored
+        # without touching the others -- one rep, real element colors for
         # N/O/S, and no second rep drawn on top of the first.
         set cats {Element Name Type}
         if {$scheme < [llength $cats]} {
@@ -249,7 +249,7 @@ proc vizard_reps {molid args} {
             color $cat C [lindex [colorinfo colors] $lc]
             set ligcolor [list $cat]
         } else {
-            # out of categories: solid colour, heteroatoms lose element colours
+            # out of categories: solid color, heteroatoms lose element colors
             set ligcolor [list ColorID $lc]
         }
         mol representation Licorice 0.15 30.0 30.0

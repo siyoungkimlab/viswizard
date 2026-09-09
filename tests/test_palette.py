@@ -1,4 +1,4 @@
-"""The colour palette is written down in three places; keep them in step.
+"""The color palette is written down in three places; keep them in step.
 
 docs/make_swatches.py draws it, vizard/align.tcl defines it for VMD, and
 pizard/pizard.py defines it for PyMOL. A change to one and not the others is
@@ -53,7 +53,7 @@ def test_vmd_matches_the_documented_palette(i):
     for got, want, what in ((tcl[17 + 2 * i], cartoon, "cartoon"),
                             (tcl[18 + 2 * i], ligand, "ligand")):
         for a, b in zip(got, want):
-            assert abs(a - b) <= 1, "%s colour drifted for scheme %d" % (what, i)
+            assert abs(a - b) <= 1, "%s color drifted for scheme %d" % (what, i)
 
 
 def test_pymol_pocket_matches_the_documented_palette():
@@ -62,7 +62,7 @@ def test_pymol_pocket_matches_the_documented_palette():
     assert len(got) == 8
     for i, (_, _c, pocket, _l) in enumerate(docs):
         for a, b in zip(got[i], pocket):
-            assert abs(a - b) <= 1, "pocket colour drifted for scheme %d" % i
+            assert abs(a - b) <= 1, "pocket color drifted for scheme %d" % i
 
 
 def test_schemes_are_distinguishable():

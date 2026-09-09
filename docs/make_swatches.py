@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render the colour-scheme swatches used in docs/colors.rst.
+"""Render the color-scheme swatches used in docs/colors.rst.
 
 Run from the repository root:
 
@@ -45,13 +45,13 @@ def hexcode(rgb):
     return "#%02X%02X%02X" % rgb
 
 
-def swatch(name, colours, path):
+def swatch(name, colors, path):
     img = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(img)
     f = _font()
     labels = ("cartoon", "pocket C", "ligand C")
     cw = (W - 4 * PAD) // 3
-    for i, (c, lab) in enumerate(zip(colours, labels)):
+    for i, (c, lab) in enumerate(zip(colors, labels)):
         x = PAD + i * (cw + PAD)
         d.rectangle([x, PAD, x + cw, H - PAD - 16], fill=c)
         d.text((x, H - PAD - 14), "%-9s %s" % (lab, hexcode(c)), fill=FG, font=f)
@@ -65,10 +65,10 @@ def strip(path):
     d = ImageDraw.Draw(img)
     f = _font(12)
     cw = (W - 110 - 4 * PAD) // 3
-    for r, (name, *colours) in enumerate(PALETTE):
+    for r, (name, *colors) in enumerate(PALETTE):
         y = PAD + r * rh
         d.text((PAD, y + 9), "%-10s %d" % (name, r), fill=FG, font=f)
-        for i, c in enumerate(colours):
+        for i, c in enumerate(colors):
             x = 100 + PAD + i * (cw + PAD)
             d.rectangle([x, y + 2, x + cw, y + rh - 6], fill=c)
     img.save(path)
@@ -84,8 +84,8 @@ def main():
     for f in os.listdir(out):
         if f.startswith("scheme") and f.endswith(".png"):
             os.remove(os.path.join(out, f))
-    for i, (name, *colours) in enumerate(PALETTE):
-        swatch(name, colours, os.path.join(out, "scheme%d_%s.png" % (i, name)))
+    for i, (name, *colors) in enumerate(PALETTE):
+        swatch(name, colors, os.path.join(out, "scheme%d_%s.png" % (i, name)))
     strip(os.path.join(out, "palette.png"))
     print("wrote %d swatches to %s" % (len(PALETTE) + 1, out))
 

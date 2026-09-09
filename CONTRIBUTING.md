@@ -40,14 +40,14 @@ reason if a step did not run. When changing the gluing, check the numbers that
 matter — the minimum protein–ligand distance should be constant across frames,
 and the longest backbone bond should stay near 1.5 Å.
 
-## Changing the colour palette
+## Changing the color palette
 
 The palette is written down in three places: `docs/make_swatches.py` draws it,
 `vizard/align.tcl` defines it for VMD, `pizard/pizard.py` for PyMOL.
 `tests/test_palette.py` asserts all three agree and that consecutive schemes
 are far enough apart to tell overlaid molecules apart;
 `tests/test_swatches.py` samples the committed images to confirm they show
-those colours, and that reordering left no stale files behind. Change all
+those colors, and that reordering left no stale files behind. Change all
 three together and re-run `python docs/make_swatches.py`.
 
 The images are checked by sampling pixels, not by comparing bytes: the label

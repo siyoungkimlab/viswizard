@@ -6,9 +6,9 @@ Known limits
   matrix instead of dividing by the three box lengths. It is a contained
   change in one place per implementation, but it is not done.
 
-- **Three ligand-carbon colours in VMD.** VMD has only three independent
-  colour categories (``Element``, ``Name``, ``Type``), so a fourth molecule
-  falls back to a solid ligand colour and loses element colours on its
+- **Three ligand-carbon colors in VMD.** VMD has only three independent
+  color categories (``Element``, ``Name``, ``Type``), so a fourth molecule
+  falls back to a solid ligand color and loses element colors on its
   heteroatoms. PyMOL has no such limit.
 
 - **No movie helper for PyMOL.** ``vizard_movie`` is VMD-only.

@@ -11,7 +11,7 @@ html_css_files = ["custom.css"]
 
 html_theme = "furo"
 # Dark in both modes: these pages are about how molecules look on a black
-# background, and the colour swatches are drawn for a dark ground.
+# background, and the color swatches are drawn for a dark ground.
 _dark = {
     "color-background-primary": "#131316",
     "color-background-secondary": "#0e0e11",

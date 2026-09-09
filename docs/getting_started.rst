@@ -67,7 +67,7 @@ Several systems at once
 -----------------------
 
 A structure — or a bare four-character PDB id — starts a new molecule, and any
-trajectories after it attach to it. Each gets its own colour and is superposed
+trajectories after it attach to it. Each gets its own color and is superposed
 onto the first.
 
 .. code-block:: bash
@@ -91,7 +91,7 @@ Common options
      - Meaning
    * - ``--ligand``
      - ``resname LIG`` / ``resn LIG``
-     - reps, colouring, pocket, view centre
+     - reps, coloring, pocket, view center
    * - ``--glue``
      - ``protein or (<ligand>)``
      - held together across the boundary

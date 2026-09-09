@@ -165,7 +165,7 @@ proc ::Glue::glue_strip {args} {
 # This reproduces, exactly, what you would do by hand: switch off the reps you
 # do not want to frame on, press "=" (display resetview), then switch them back
 # on.  resetview fits whatever is DISPLAYED, so the framing comes from VMD's own
-# bounding-box logic rather than an approximation of it -- centre of mass and a
+# bounding-box logic rather than an approximation of it -- center of mass and a
 # diagonal-based zoom give a visibly different result.
 #
 #   glue_center -reps {1 2}     ;# frame on reps 1 and 2, restore the rest
