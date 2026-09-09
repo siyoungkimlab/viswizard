@@ -25,14 +25,5 @@ Selections are PyMOL syntax. Some that work:
 Formats
 -------
 
-``~/.pymolrc.py`` registers the handlers, so these work with no setup:
-
-.. code-block:: text
-
-   PyMOL> load solute.dms
-   PyMOL> save out.dms, polymer or resn LIG
-   PyMOL> save_mae out.mae, polymer or resn LIG
-
-The ``.mae`` reader matters only on open-source PyMOL; the incentive build
-reads ``.mae`` natively. DMS is the real gain either way — PyMOL has no DMS
-support at all.
+``.dms`` and ``.mae`` can be given on the command line, and ``load`` and
+``save`` handle them inside a session — see :doc:`formats`.

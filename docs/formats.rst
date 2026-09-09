@@ -38,3 +38,18 @@ In a VMD session
    vizard_load_dms system.dms
    vizard_write_mae "protein or resname LIG" out.mae
    vizard_write_dms "protein or resname LIG" out.dms
+
+In a PyMOL session
+------------------
+
+``load`` and ``save`` handle both formats directly:
+
+.. code-block:: text
+
+   PyMOL> load system.dms
+   PyMOL> load system.mae
+   PyMOL> save out.dms, polymer or resn LIG
+   PyMOL> save_mae out.mae, polymer or resn LIG
+
+``save_mae`` always writes with viswizard's writer. Plain ``save out.mae``
+works too, using PyMOL's own writer where the build has one.
