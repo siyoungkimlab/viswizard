@@ -19,11 +19,11 @@ Re-running it is safe.
 What it does
 ------------
 
-In a periodic simulation a ligand that is not bonded to its protein wraps
-independently of it, so it jumps across the box between frames. viswizard
-makes molecules whole, keeps the ligand with its protein, wraps everything
-else, and fits the trajectory — in that order, since re-wrapping after a fit
-would undo it.
+In a molecular dynamics simulation, a protein or ligand jumps across the box
+between frames because of periodic boundary conditions. viswizard makes
+molecules whole, keeps the ligand with its protein, wraps everything else, and
+fits the trajectory — in that order, since re-wrapping after a fit would undo
+it.
 
 Examples
 --------
