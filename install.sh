@@ -103,6 +103,9 @@ while [ \$# -gt 0 ]; do
 done
 [ \${#files[@]} -gt 0 ] || { echo "pizard: no input file given" >&2; exit 1; }
 
+# rendering a video needs no window, and should exit when it is done
+for f in "\${flags[@]}"; do [ "\$f" = "--out" ] && pmargs=(-cq "\${pmargs[@]}"); done
+
 exec "\$PM" "\${pmargs[@]}" "\$PIZARD_DIR/pizard.py" -- "\${files[@]}" "\${flags[@]}"
 WRAP
 chmod +x "$BIN/pizard"
@@ -158,7 +161,7 @@ if _os.path.isdir(_vw):
     if _vw not in _sys.path:
         _sys.path.insert(0, _vw)
     try:
-        import mae_reader, formats
+        import mae_reader, formats, movie
     except Exception as _e:
         print("viswizard: could not load format handlers: %s" % _e)
 # <<< viswizard <<<

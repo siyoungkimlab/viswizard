@@ -118,28 +118,32 @@ Options
      - to name the PyMOL object something other than ``sys``
    * - ``--out``
      - –
-     - not available
+     - –
      - to render a video instead of opening a session
    * - ``--size``
      - ``1280 720``
-     - not available
+     - current viewport
      - with ``--out``, to set the frame size
    * - ``--fps``
      - ``24``
-     - not available
+     - ``24``
      - with ``--out``, to set the playback rate
    * - ``--step``
      - ``1``
-     - not available
+     - ``1``
      - with ``--out``, to render every Nth frame for a quick preview
    * - ``--zoom``
      - ``1``
      - not available
-     - with ``--out``, to tighten the framing
+     - with ``--out``, to tighten the framing (VMD only)
    * - ``--keep``
      - ``0``
-     - not available
+     - ``0``
      - with ``--out``, to keep the intermediate frames
+   * - ``--ray``
+     - not available
+     - ``1``
+     - with ``--out``, ``0`` skips ray tracing for speed
    * - ``--reframe``
      - ``1``
      - not available
