@@ -22,6 +22,30 @@ Selections are PyMOL syntax. Some that work:
    --glue   "polymer or resn LIG or resn ZN"
 
 
+Movies
+------
+
+.. code-block:: text
+
+   PyMOL> pizard_movie out=movie.mp4
+   PyMOL> pizard_movie out=m.mp4, size=1920x1080, fps=30
+   PyMOL> pizard_movie out=preview.mp4, step=10, ray=0
+   PyMOL> pizard_movie out=-h
+
+Or straight from the command line, without opening a session:
+
+.. code-block:: bash
+
+   pizard sys.pdb traj.dcd --ligand "resn LIG" --out movie.mp4 \
+          --size 1920x1080 --fps 30
+
+Frames go through ``cmd.png`` and are muxed with ffmpeg. It renders headless,
+so no window has to stay in front. ``ray=0`` trades quality for speed on a long
+trajectory. ``pmovie`` is a shorter alias.
+
+The command is not called ``movie``: that name is PyMOL's own module, and
+taking it would break ``movie.produce`` and ``movie.roll``.
+
 Formats
 -------
 

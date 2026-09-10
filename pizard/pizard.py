@@ -93,6 +93,15 @@ def main(argv=None):
                    help="reference structure; the trajectory is put onto it "
                         "with cealign after the internal alignment")
     p.add_argument("--object", dest="obj", default="sys")
+    p.add_argument("--out", dest="out", default=None,
+                   help="render a video instead of opening a session")
+    p.add_argument("--size", dest="size", default="", help="with --out, WxH")
+    p.add_argument("--fps", dest="fps", default=24, help="with --out")
+    p.add_argument("--step", dest="step", default=1,
+                   help="with --out, render every Nth state")
+    p.add_argument("--ray", dest="ray", default=1, help="with --out, ray trace")
+    p.add_argument("--keep", dest="keep", default=0,
+                   help="with --out, keep the PNG frames")
     o = p.parse_args(argv)
 
     # Group the files.  A structure (or a bare 4-character PDB id) starts a new
@@ -252,6 +261,11 @@ def main(argv=None):
     cmd.mset("1 -%d" % max(cmd.count_states(n) for n in objs))
     print("pizard: ready -- %d object(s), %d states"
           % (len(objs), max(cmd.count_states(n) for n in objs)))
+
+    if o.out:
+        from movie import pizard_movie
+        pizard_movie(out=o.out, size=o.size, fps=o.fps, step=o.step,
+                     ray=o.ray, keep=o.keep, object=objs[0])
 
 
 main()

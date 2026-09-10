@@ -57,8 +57,10 @@ it.
 - **Formats VMD cannot handle.** It reads `.mae` but cannot write it and has no
   DMS plugin at all; its Tcl has no `sqlite3`. Both are supplied, and work in
   PyMOL too.
-- **Movies in one line.** `vizard_movie -out movie.mp4` renders what you are
-  looking at with Tachyon's in-memory renderer and ffmpeg. Works headless.
+- **Movies in one line, in either viewer.** `vizard_movie -out movie.mp4` and
+  `pizard_movie out=movie.mp4` render what you are looking at and mux with
+  ffmpeg. Both work headless, and `--out` does it straight from the command
+  line.
 - **Sequence-based superposition for VMD.** `mm 1 0` aligns by sequence first,
   so residue numbering need not match — which `measure fit` cannot do.
 - **A palette built for overlays.** Eight schemes, each one hue: dark cartoon,
