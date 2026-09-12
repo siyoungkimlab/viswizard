@@ -88,7 +88,14 @@ since unrelated proteins still produce a transform.
 Speed
 -----
 
-Making molecules whole is the whole cost of gluing, and it is per-fragment, so
-``-join`` defaults to the glue selection rather than the whole system — about
-40 ms/frame on a 32k-atom box. Pass ``-join all`` if you render solvent.
-``glue_strip`` writes a solute-only trajectory, roughly 9× smaller.
+A long trajectory is glued by several VMD processes at once: each takes a
+consecutive range of frames, and the ranges are loaded back in order.
+``-workers`` sets how many (default one per CPU, up to 8, and at least 25
+frames each); ``-workers 1`` keeps everything in one VMD. On a 47k-atom box,
+1000 frames take about 4 s, or 14 s in one process. The frames pass through a
+temporary directory, so expect about twice the trajectory's size on disk while
+it runs. If a worker fails, gluing carries on in the one VMD.
+
+``-join`` defaults to the glue selection rather than the whole system, since
+solvent is never drawn; pass ``-join all`` if you render it. ``glue_strip``
+writes a solute-only trajectory, roughly 9× smaller.

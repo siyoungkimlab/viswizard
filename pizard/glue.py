@@ -8,10 +8,24 @@ Run it on a loaded trajectory and the ligand stops hopping across the box:
 
 Orthorhombic cells.  For triclinic, replace the /L and *L below with the
 inverse-cell and cell matrices.
+
+Every step is whole-array numpy over a block of states, and blocks run on
+several threads (numpy releases the GIL for this work).  PyMOL itself is only
+called from the calling thread, and each block carries its own state numbers,
+so a state's coordinates always go back into that same state.
 """
+import os
+import time
+from collections import deque
+from concurrent.futures import ThreadPoolExecutor
+
 import numpy as np
-import pymol
-from pymol import cmd
+
+try:
+    import pymol
+    from pymol import cmd
+except ImportError:          # the numpy core is importable, and tested, without PyMOL
+    pymol = cmd = None
 
 __all__ = ["glue_traj"]
 
@@ -29,11 +43,9 @@ def _indices(sel):
     return np.array(sorted(out), dtype=np.int64)
 
 
-def _adjacency(obj):
+def _csr(nat, bonds):
     """0-based bond list -> CSR-ish neighbour arrays."""
-    model = cmd.get_model(obj)
-    nat = len(model.atom)
-    bonds = np.array([b.index for b in model.bond], dtype=np.int64).reshape(-1, 2)
+    bonds = np.asarray(bonds, dtype=np.int64).reshape(-1, 2)
     deg = np.bincount(bonds.ravel(), minlength=nat)
     start = np.concatenate([[0], np.cumsum(deg)])
     nbr = np.empty(2 * len(bonds), dtype=np.int64)
@@ -41,39 +53,14 @@ def _adjacency(obj):
     for i, j in bonds:
         nbr[fill[i]] = j; fill[i] += 1
         nbr[fill[j]] = i; fill[j] += 1
+    return start, nbr
+
+
+def _adjacency(obj):
+    model = cmd.get_model(obj)
+    nat = len(model.atom)
+    start, nbr = _csr(nat, [b.index for b in model.bond])
     return nat, start, nbr
-
-
-def _bfs(nat, start, nbr):
-    """Connected components + a BFS spanning tree grouped by depth."""
-    labels = np.full(nat, -1, dtype=np.int64)
-    levels, ncomp = [], 0
-    frontier_all = []
-    for seed in range(nat):
-        if labels[seed] >= 0:
-            continue
-        labels[seed] = ncomp
-        frontier = [seed]
-        depth = 0
-        while frontier:
-            par, chi = [], []
-            for a in frontier:
-                for k in range(start[a], start[a + 1]):
-                    b = nbr[k]
-                    if labels[b] < 0:
-                        labels[b] = ncomp
-                        par.append(a); chi.append(b)
-            if not par:
-                break
-            while len(levels) <= depth:
-                levels.append(([], []))
-            levels[depth][0].extend(par)
-            levels[depth][1].extend(chi)
-            frontier = chi
-            depth += 1
-        ncomp += 1
-    levels = [(np.array(p), np.array(c)) for p, c in levels]
-    return labels, ncomp, levels
 
 
 def _optimal_shifts(x):
@@ -102,85 +89,217 @@ def _kabsch(P, Q):
     return R, pc, qc
 
 
+class _Topology:
+    """Everything about the system that does not change from state to state.
+
+    Bond fixing needs no walk over the atoms per state.  Take a BFS spanning
+    tree of the bonds.  An atom's cell shift is the sum of the per-edge shifts
+    on its path from the root, and each per-edge shift depends only on the RAW
+    coordinates -- the parent's own shift is a whole number of cells:
+
+        k_e = -round((x_child - x_parent) / L)
+
+    Adding k_e to a whole subtree is a range update in DFS preorder, where a
+    subtree is a contiguous run, so all of them together are one difference
+    array and one cumsum.  Nearly every k_e is zero, and a block of states
+    whose molecules are already whole skips the step.
+    """
+
+    def __init__(self, nat, start, nbr, gidx):
+        st, nb = start.tolist(), nbr.tolist()
+        label, parent = [-1] * nat, [-1] * nat
+        ncomp = 0
+        for seed in range(nat):
+            if label[seed] >= 0:
+                continue
+            label[seed] = ncomp
+            queue = [seed]
+            for a in queue:                 # grows while it is walked: BFS
+                for b in nb[st[a]:st[a + 1]]:
+                    if label[b] < 0:
+                        label[b] = ncomp
+                        parent[b] = a
+                        queue.append(b)
+            ncomp += 1
+        labels = np.array(label, dtype=np.int64)
+        parent = np.array(parent, dtype=np.int64)
+
+        child = np.flatnonzero(parent >= 0)
+        par = parent[child]
+        kids = child[np.argsort(par, kind="stable")].tolist()
+        kstart = np.concatenate([[0], np.cumsum(np.bincount(par, minlength=nat))]).tolist()
+        pre = np.empty(nat, dtype=np.int64)
+        visit = []
+        for root in np.flatnonzero(parent < 0).tolist():
+            stack = [root]
+            while stack:
+                a = stack.pop()
+                pre[a] = len(visit)
+                visit.append(a)
+                stack.extend(reversed(kids[kstart[a]:kstart[a + 1]]))
+        size = [1] * nat
+        for a in reversed(visit):           # children are visited after parents
+            if parent[a] >= 0:
+                size[parent[a]] += size[a]
+        size = np.array(size, dtype=np.int64)
+
+        self.nat, self.ncomp, self.labels = nat, ncomp, labels
+        self.child, self.parent, self.pre = child, par, pre
+        self.lo, self.hi = pre[child], pre[child] + size[child]
+        self.gidx = gidx
+        self.gcomps = np.unique(labels[gidx])
+        self.gslot = np.searchsorted(self.gcomps, labels[gidx])
+        self.gcount = np.bincount(self.gslot, minlength=len(self.gcomps)).astype(float)
+        self.glued = np.isin(labels, self.gcomps)    # every atom of every glued comp
+        self.count = np.bincount(labels, minlength=ncomp).astype(float)
+        self.nothers = ncomp - len(self.gcomps)
+
+
+def _sums(X, idx, n):
+    """Per-group coordinate sums for every state at once: X is F x M x 3."""
+    F, M = X.shape[:2]
+    flat = (np.arange(F)[:, None] * n + idx[None, :]).ravel()
+    X = X.reshape(-1, 3)
+    return np.stack([np.bincount(flat, X[:, a], F * n) for a in range(3)],
+                    axis=1).reshape(F, n, 3)
+
+
+def _glue_block(P, L, t, wrap=1):
+    """Steps 1-3, in place, on P (F x N x 3) with orthorhombic cells L (F x 3)."""
+    F, nat = len(P), t.nat
+    Lb = L[:, None, :]
+
+    # 1. fix bonds: one difference array and one cumsum, see _Topology
+    k = -np.round((P[:, t.child] - P[:, t.parent]) / Lb)
+    f, e = np.nonzero(k.any(axis=2))
+    if len(f):
+        D = np.zeros((F, nat + 1, 3))
+        np.add.at(D, (f, t.lo[e]), k[f, e])
+        np.add.at(D, (f, t.hi[e]), -k[f, e])
+        P += np.cumsum(D[:, :nat], axis=1)[:, t.pre] * Lb
+
+    # 2. glue: shift whole components onto their jointly optimal images
+    ng = len(t.gcomps)
+    if ng > 1:
+        cen = _sums(P[:, t.gidx], t.gslot, ng) / t.gcount[None, :, None]
+        sh = np.zeros((F, t.ncomp, 3))
+        for i in range(F):
+            sh[i, t.gcomps] = np.stack([_optimal_shifts(cen[i, :, a] / L[i, a])
+                                        for a in range(3)], axis=1) * L[i]
+        if sh.any():
+            P += sh[:, t.labels]
+
+    # 3. wrap everything else -- never the glued set, or 2 is undone
+    if wrap and t.nothers:
+        gcen = P[:, t.glued].mean(axis=1)
+        cen = _sums(P, t.labels, t.ncomp) / t.count[None, :, None]
+        sh = -np.round((cen - gcen[:, None, :]) / Lb) * Lb
+        sh[:, t.gcomps] = 0.0
+        P += sh[:, t.labels]
+    return P
+
+
+def _process(nstates, fetch, load, cells, t, fit_idx, wrap=1, threads=1, block=16):
+    """Steps 1-4 for states 1..nstates.
+
+    fetch(states) -> coordinates (len(states) x N x 3) and load(states, P) are
+    called from this thread only, in state order; the numpy work in between
+    runs on `threads` threads.  cells[s - 1] is state s's cell, or None.
+    """
+    def glue(P, Ls):
+        boxed = [i for i, L in enumerate(Ls) if L is not None]
+        if boxed:
+            sub = P[boxed]
+            _glue_block(sub, np.array([Ls[i] for i in boxed]), t, wrap)
+            P[boxed] = sub
+        return P
+
+    # 4. align, last.  State 1 has been made whole, so it is a sane reference
+    #    -- fitting to a split structure gives a bogus rotation.
+    ref = glue(fetch([1]), cells[:1])[0][fit_idx].copy()
+
+    def work(states, P):
+        glue(P, [cells[s - 1] for s in states])
+        for i, s in enumerate(states):
+            if s != 1:
+                R, pc, qc = _kabsch(P[i][fit_idx], ref)
+                P[i] = (P[i] - pc) @ R.T + qc
+        return P
+
+    threads = max(1, threads)
+    pending = deque()
+    with ThreadPoolExecutor(max_workers=threads) as ex:
+        for s0 in range(1, nstates + 1, block):
+            states = list(range(s0, min(s0 + block, nstates + 1)))
+            pending.append((states, ex.submit(work, states, fetch(states))))
+            if len(pending) > threads:          # bound the memory in flight
+                states, fut = pending.popleft()
+                load(states, fut.result())
+        while pending:
+            states, fut = pending.popleft()
+            load(states, fut.result())
+
+
+def _cell(obj, state):
+    """Orthorhombic cell edges of one state, or None when there is no usable cell."""
+    # per state: an NPT box changes size from frame to frame
+    sym = cmd.get_symmetry(obj, state)
+    if not sym or min(sym[:3]) <= 2.0:
+        # a boxless file reports a placeholder: the PBC steps would destroy
+        # the structure, so that state is aligned only
+        return None
+    if not np.allclose(sym[3:6], 90.0):
+        raise pymol.CmdException("triclinic cell not supported")
+    return np.array(sym[:3], dtype=float)
+
+
 def glue_traj(glue="polymer", fit="polymer and name CA", obj=None, wrap=1,
-              quiet=0, align=None):
+              quiet=0, align=None, threads=0):
+    """threads: numpy threads for the gluing; 0 = one per CPU."""
     if align:                      # -align is an alias for -fit
         fit = align
     obj = obj or cmd.get_object_list()[0]
-    wrap, quiet = int(wrap), int(quiet)
-    nat, start, nbr = _adjacency(obj)
-    labels, ncomp, levels = _bfs(nat, start, nbr)
+    wrap, quiet, threads = int(wrap), int(quiet), int(threads)
+    threads = threads if threads > 0 else (os.cpu_count() or 1)
+    t0 = time.time()
 
+    nat, start, nbr = _adjacency(obj)
     gidx = _indices("(%s) and (%s)" % (obj, glue))
     if not len(gidx):
         raise pymol.CmdException("glue selection matched nothing")
-    gcomps = np.unique(labels[gidx])
-    glued = np.isin(labels, gcomps)                 # every atom of every glued comp
-    csel = [gidx[labels[gidx] == c] for c in gcomps]
-    msel = [np.flatnonzero(labels == c) for c in gcomps]
-    others = [np.flatnonzero(labels == c) for c in range(ncomp) if c not in set(gcomps)]
+    t = _Topology(nat, start, nbr, gidx)
     if not quiet:
         print("glue: %d atoms in %d components; %d other molecules"
-              % (len(gidx), len(gcomps), len(others)))
+              % (len(gidx), len(t.gcomps), t.nothers))
 
     fit_idx = _indices("(%s) and (%s)" % (obj, fit))
     if len(fit_idx) < 3:
         raise pymol.CmdException("fit selection needs at least 3 atoms")
-    ref = None
 
     nstates = cmd.count_states(obj)
-    for st in range(1, nstates + 1):
+    cells = [_cell(obj, st) for st in range(1, nstates + 1)]
+    if cells[0] is None and not quiet:
+        print("glue: no usable periodic cell -- aligning only")
+
+    def fetch(states):
         # get_coords, NOT get_coordset: coordset rows are not ordered by the
         # internal atom index, so indexing them with a selection's indices
         # silently pairs up the wrong atoms.
-        pos = cmd.get_coords(obj, st).astype(float)
+        return np.stack([cmd.get_coords(obj, s) for s in states]).astype(float)
 
-        # per state: an NPT box changes size from frame to frame
-        sym = cmd.get_symmetry(obj, st)
-        if not sym or min(sym[:3]) <= 2.0:
-            # no usable cell (a boxless file reports a placeholder): the PBC
-            # steps would destroy the structure, so align only
-            if st == 1 and not quiet:
-                print("glue: no usable periodic cell -- aligning only")
-            L = None
-        else:
-            if not np.allclose(sym[3:6], 90.0):
-                raise pymol.CmdException("triclinic cell not supported")
-            L = np.array(sym[:3], dtype=float)
+    def load(states, P):
+        # The fit is computed here rather than with cmd.intra_fit, which
+        # computes a fit but does not write it back to the coordsets.
+        for s, x in zip(states, P):
+            cmd.load_coords(x, obj, s)
 
-        if L is not None:
-            # 1. fix bonds, level by level down the spanning tree
-            for par, chi in levels:
-                d = pos[chi] - pos[par]
-                pos[chi] -= np.round(d / L) * L
-
-            # 2. glue: shift whole components onto their jointly optimal images
-            cen = np.array([pos[ix].mean(0) for ix in csel])
-            sh = np.stack([_optimal_shifts(cen[:, k] / L[k]) for k in range(3)],
-                          axis=1)
-            for ix, sft in zip(msel, sh):
-                if sft.any():
-                    pos[ix] += sft * L
-
-            # 3. wrap everything else -- never the glued set, or 2 is undone
-            if wrap and others:
-                gcen = pos[glued].mean(0)
-                for ix in others:
-                    pos[ix] -= np.round((pos[ix].mean(0) - gcen) / L) * L
-
-        # 4. align, last.  State 1 has been made whole above, so it is a sane
-        #    reference -- fitting to a split structure gives a bogus rotation.
-        #    Done here rather than with cmd.intra_fit, which computes a fit but
-        #    does not write it back to the coordsets this code manipulates.
-        if ref is None:
-            ref = pos[fit_idx].copy()
-        else:
-            R, pc, qc = _kabsch(pos[fit_idx], ref)
-            pos = (pos - pc) @ R.T + qc
-
-        cmd.load_coords(pos, obj, st)
+    # ~16 states per block, fewer for very large systems to bound memory
+    block = max(1, min(16, 4000000 // max(nat, 1)))
+    _process(nstates, fetch, load, cells, t, fit_idx, wrap, threads, block)
     if not quiet:
-        print("glue: processed %d states" % nstates)
+        print("glue: processed %d states in %.1f s on %d threads"
+              % (nstates, time.time() - t0, threads))
 
 
-cmd.extend("glue_traj", glue_traj)
+if cmd is not None:
+    cmd.extend("glue_traj", glue_traj)
