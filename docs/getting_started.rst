@@ -94,7 +94,8 @@ Options
    * - ``--ligand``, ``--lig``
      - ``resname LIG``
      - ``resn LIG``
-     - whenever the ligand is not called ``LIG``
+     - whenever the ligand is not called ``LIG``. With no ligand at all,
+       the protein alone is glued — its chains held together — and shown
    * - ``--glue``
      - ``protein or (<ligand>)``
      - ``polymer or (<ligand>)``

@@ -53,7 +53,9 @@ in PyMOL.  (vizard is the same thing for VMD.)
 
 Options (all optional):
   --ligand SEL   ligand selection: reps, coloring, pocket, view center
-                                                   (default "resn LIG")
+                                                   (default "resn LIG").
+                 If nothing matches, the polymer alone is glued -- its
+                 chains held together -- and shown.
   --glue SEL     held together across the periodic boundary
                                                    (default "polymer or (<ligand>)")
   --align SEL    what the trajectory is fitted on  (default "polymer and name CA")
@@ -167,8 +169,9 @@ def main(argv=None):
         if na < 3:
             print("pizard: %s -- align selection matches %d atoms, skipping" % (name, na))
             continue
-        g = gluesel if nl else "polymer"
-        if not nl:
+        # the default glue names the ligand; an explicit --glue is kept as given
+        g = gluesel if nl or o.glue else "polymer"
+        if not (nl or o.glue):
             print("pizard: %s -- no ligand matched; gluing polymer only" % name)
         glue_traj(glue=g, align=o.align, obj=name, quiet=1)
 

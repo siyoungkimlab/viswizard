@@ -30,7 +30,9 @@ superposed onto the first:
 Options (all optional; values may contain spaces):
 
   --ligand SEL   ligand selection, used for reps, coloring, pocket and the
-                 view center                      (default "resname LIG")
+                 view center                      (default "resname LIG").
+                 If nothing matches, the protein alone is glued -- its
+                 chains held together -- and shown.
   --glue SEL     what is held together across the periodic boundary
                                                   (default "protein or (<ligand>)")
   --align SEL    what the trajectory is fitted on (default "protein and name CA")
@@ -226,9 +228,19 @@ proc vizard_main {} {
             error "$label selection '$sel' is not valid VMD syntax: $s"
         }
         set n [$s num] ; $s delete
+        # No ligand is not an error: an apo protein, or a protein-protein
+        # complex, is glued and viewed as protein alone.
+        if {$n == 0 && $label eq "ligand"} {
+            puts [format "vizard: %-6s %-44s %6d atoms -- none; protein only" \
+                  $label "'$sel'" $n]
+            continue
+        }
         if {$n == 0} { error "$label selection '$sel' matched 0 atoms" }
         puts [format "vizard: %-6s %-44s %6d atoms" $label "'$sel'" $n]
     }
+    set l [atomselect top "$ligsel"]
+    set haslig [expr {[$l num] > 0}]
+    $l delete
 
     # ---- glue + internal alignment, per molecule ---------------------------
     foreach m $mols {
@@ -238,8 +250,9 @@ proc vizard_main {} {
             puts "vizard: molid $m -- align selection matches $na atoms, skipping"
             continue
         }
+        # the default glue names the ligand; an explicit --glue is kept as given
         set g $gluesel
-        if {$nl == 0} {
+        if {$nl == 0 && !([info exists A(glue)] && $A(glue) ne "")} {
             set g "protein"
             puts "vizard: molid $m -- no ligand matched; gluing protein only"
         }
@@ -286,11 +299,15 @@ proc vizard_main {} {
         }
     }
 
-    set p [atomselect top "protein" frame 0]
-    set l [atomselect top "$ligsel" frame 0]
-    set n [llength [lindex [measure contacts 5.0 $p $l] 0]]
-    $p delete; $l delete
-    if {$n == 0} {
+    if {$haslig} {
+        set p [atomselect top "protein" frame 0]
+        set l [atomselect top "$ligsel" frame 0]
+        set n [llength [lindex [measure contacts 5.0 $p $l] 0]]
+        $p delete; $l delete
+    }
+    if {!$haslig} {
+        puts "vizard: no ligand -- showing the protein"
+    } elseif {$n == 0} {
         puts "vizard: WARNING -- no protein/ligand contacts within 5 A in"
         puts "vizard:            frame 0; is the ligand actually bound?"
     } else {
@@ -311,8 +328,10 @@ proc vizard_main {} {
         foreach m $mols {
             catch { vizard_reps $m -ligand $ligsel -pocket $pocketcut }
         }
-        set ::vizard_reps [list 1 2]
-        catch { glue_center -molid [lindex $mols 0] -reps {1 2} }
+        # reps 1 and 2 are ligand and pocket; without a ligand only the
+        # cartoon, rep 0, exists
+        set ::vizard_reps [expr {$haslig ? {1 2} : {0}}]
+        catch { glue_center -molid [lindex $mols 0] -reps $::vizard_reps }
     } else {
         # Orthographic: no perspective foreshortening, so distances read true.
         display projection Orthographic
@@ -366,12 +385,20 @@ proc vizard_main {} {
         set np [llength $polarh]
         $psel delete
         $hsel delete
-        if {$np == 0} {
+        # heavy atoms plus polar H only; water is never in any of these reps.
+        # "index" with an empty list is a syntax error, and mol selection then
+        # silently keeps the previous rep's text -- so a structure with no
+        # polar H gets "noh", and one with no hydrogens at all needs no filter.
+        if {$np > 0} {
+            set shown "(noh or index $polarh)"
+            puts "vizard: showing $np polar H of $nh protein+ligand hydrogens"
+        } elseif {$nh > 0} {
+            set shown "noh"
             puts "vizard: WARNING -- no polar H found; showing heavy atoms only"
+        } else {
+            set shown "all"
+            puts "vizard: no hydrogens in the structure"
         }
-        puts "vizard: showing $np polar H of $nh protein+ligand hydrogens"
-        # heavy atoms plus polar H only; water is never in any of these reps
-        set shown "(noh or index $polarh)"
 
         mol delrep 0 top
 
@@ -382,23 +409,25 @@ proc vizard_main {} {
         mol addrep top
         set rep_cartoon [expr {[molinfo top get numreps] - 1}]
 
-        # whole ligand in ONE rep -> all bonds drawn; carbons salmon via Element
-        mol representation Licorice 0.15 30.0 30.0
-        mol selection "($ligsel) and $shown"
-        mol color Element
-        mol material AOShiny
-        mol addrep top
-        set rep_ligand [expr {[molinfo top get numreps] - 1}]
+        if {$haslig} {
+            # whole ligand in ONE rep -> all bonds drawn; carbons salmon via Element
+            mol representation Licorice 0.15 30.0 30.0
+            mol selection "($ligsel) and $shown"
+            mol color Element
+            mol material AOShiny
+            mol addrep top
+            set rep_ligand [expr {[molinfo top get numreps] - 1}]
 
-        # pocket: whole residues within --pocket A of the ligand.  Distance-based, so it
-        # must be re-evaluated every frame or it freezes at frame 0.
-        mol representation Licorice 0.08 24.0 24.0
-        mol selection "(same residue as (protein and within $pocketcut of ($ligsel))) and $shown"
-        mol color Name
-        mol material AOChalky
-        mol addrep top
-        set rep_pocket [expr {[molinfo top get numreps] - 1}]
-        mol selupdate $rep_pocket top on
+            # pocket: whole residues within --pocket A of the ligand.  Distance-based, so it
+            # must be re-evaluated every frame or it freezes at frame 0.
+            mol representation Licorice 0.08 24.0 24.0
+            mol selection "(same residue as (protein and within $pocketcut of ($ligsel))) and $shown"
+            mol color Name
+            mol material AOChalky
+            mol addrep top
+            set rep_pocket [expr {[molinfo top get numreps] - 1}]
+            mol selupdate $rep_pocket top on
+        }
     }
 
     animate goto 0
@@ -412,10 +441,13 @@ proc vizard_main {} {
     if {[info exists rep_ligand] && [info exists rep_pocket]} {
         set ::vizard_reps [list $rep_ligand $rep_pocket]
         glue_center -reps $::vizard_reps
+    } elseif {[info exists rep_cartoon]} {
+        set ::vizard_reps [list $rep_cartoon]
+        glue_center -reps $::vizard_reps
     }
     # make vizard_movie available at the vmd> prompt
     puts "vizard: ready -- [molinfo top get numframes] frames,\
-          view centered on '$ligsel'"
+          view centered on [expr {$haslig ? "'$ligsel'" : "the protein"}]"
     if {[info commands vizard_movie] ne ""} {
         puts "vizard: type  vizard_movie -out movie.mp4   to render a video"
     }
