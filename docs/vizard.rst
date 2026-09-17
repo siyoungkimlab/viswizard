@@ -9,6 +9,10 @@ vizard (VMD)
    vizard sys.pdb traj.dcd --ligand "resname LIG" --out movie.mp4
    vizard --help
 
+``--ligand`` defaults to ``chain LIG L or resname LIG`` — a ligand named
+``LIG``, or one sitting in chain ``LIG`` or ``L`` — so it often needs no flag.
+With nothing matching, the protein alone is glued and shown.
+
 Selections are VMD syntax. Some that work:
 
 .. code-block:: bash

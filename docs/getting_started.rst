@@ -92,10 +92,12 @@ Options
      - ``pizard`` (PyMOL)
      - When to use it
    * - ``--ligand``, ``--lig``
-     - ``resname LIG``
-     - ``resn LIG``
-     - whenever the ligand is not called ``LIG``. With no ligand at all,
-       the protein alone is glued — its chains held together — and shown
+     - ``chain LIG L or resname LIG``
+     - ``organic and not resn ACE+NMA+NME``
+     - whenever the default catches the wrong thing — in ``vizard``, a ligand
+       that is neither called ``LIG`` nor in chain ``LIG``/``L``. With no
+       ligand at all, the protein alone is glued — its chains held together —
+       and shown
    * - ``--glue``
      - ``protein or (<ligand>)``
      - ``polymer or (<ligand>)``
