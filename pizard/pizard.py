@@ -40,12 +40,18 @@ else:
     raise SystemExit("pizard: cannot find glue.py (looked in: %s)" % _cands)
 from glue import glue_traj
 
+# Every organic molecule that is not a peptide cap.  That is the ligand in
+# most systems and nothing at all in an apo one, where the polymer alone is
+# then glued and shown.  ACE/NMA/NME are capping groups, not ligands, but
+# PyMOL counts them as organic because they are not standard residues.
+DEFAULT_LIGAND = "organic and not resn ACE+NMA+NME"
 
 HELP = """
 pizard -- glue a ligand to its protein across PBC, align, and set up a view,
 in PyMOL.  (vizard is the same thing for VMD.)
 
   pizard topology [trajectory] [options]
+  pizard sys.pdb traj.dcd
   pizard sys.pdb traj.dcd --ligand "resn LIG"
   pizard sys.dms --ligand "resn LIG" --pocket 8
   pizard sys.pdb traj.dcd --glue "polymer or resn LIG" \\
@@ -53,9 +59,10 @@ in PyMOL.  (vizard is the same thing for VMD.)
 
 Options (all optional):
   --ligand SEL   ligand selection: reps, coloring, pocket, view center
-                                                   (default "resn LIG").
-                 If nothing matches, the polymer alone is glued -- its
-                 chains held together -- and shown.
+                 (default "organic and not resn ACE+NMA+NME" -- every
+                 organic molecule that is not a peptide cap).  If nothing
+                 matches, the polymer alone is glued -- its chains held
+                 together -- and shown.
   --glue SEL     held together across the periodic boundary
                                                    (default "polymer or (<ligand>)")
   --align SEL    what the trajectory is fitted on  (default "polymer and name CA")
@@ -75,6 +82,8 @@ Selections are PyMOL syntax.  Some that work:
   --align  "polymer and backbone and chain A"
   --glue   "polymer or resn LIG or resn ZN"
 
+Of the hydrogens, only the polar ones are drawn -- those on N, O or S.
+
 DMS and MAE load directly; ~/.pymolrc.py registers the handlers.
 """
 
@@ -86,7 +95,7 @@ def main(argv=None):
         return
     p = argparse.ArgumentParser(prog="pizard", add_help=False)
     p.add_argument("files", nargs="+")
-    p.add_argument("--ligand", "--lig", dest="ligand", default="resn LIG")
+    p.add_argument("--ligand", "--lig", dest="ligand", default=DEFAULT_LIGAND)
     p.add_argument("--glue", dest="glue", default=None)
     p.add_argument("--align", "--fit", dest="align", default="polymer and name CA")
     p.add_argument("--pocket", dest="pocket", type=float, default=6.0,
@@ -135,13 +144,23 @@ def main(argv=None):
         else:
             groups.append((f, []))
 
+    # Object names come from the file names.  Several systems whose files are
+    # all called the same thing -- apo/solvated.pdb, holo/solvated.pdb -- would
+    # become solvated, solvated_, solvated__, which says nothing about which is
+    # which; the directory above them is what tells them apart, so use that.
+    bases = [os.path.splitext(os.path.basename(t))[0] for t, _ in groups]
+    if len(groups) > 1 and len(set(bases)) == 1:
+        parents = [os.path.basename(os.path.dirname(os.path.abspath(t)))
+                   for t, _ in groups]
+        if all(parents) and len(set(parents)) == len(parents):
+            bases = parents
+
     objs = []
     for i, (top, trajs) in enumerate(groups):
-        base = os.path.splitext(os.path.basename(top))[0]
         if len(groups) == 1:
             name = o.obj
         else:
-            name = re.sub(r"\W+", "_", base) or "sys%d" % (i + 1)
+            name = re.sub(r"\W+", "_", bases[i]) or "sys%d" % (i + 1)
         while name in cmd.get_object_list():
             name += "_"
         before = set(cmd.get_object_list())

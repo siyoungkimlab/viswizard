@@ -3,10 +3,22 @@ pizard (PyMOL)
 
 .. code-block:: bash
 
+   pizard sys.pdb traj.dcd
    pizard sys.pdb traj.dcd --ligand "resn LIG"
    pizard sys.dms --ligand "resn LIG" --pocket 8
    pizard a.pdb a.dcd b.pdb b.dcd 3ptb --ref 1ubq
    pizard --help
+
+``--ligand`` defaults to ``organic and not resn ACE+NMA+NME`` — every organic
+molecule that is not a peptide cap — so a ligand usually needs no flag at all.
+Name it when the default catches too much (lipids and organic cosolvents are
+organic too) or too little. With nothing matching, the polymer alone is glued
+and shown. Of the hydrogens, only the polar ones are drawn — those on N, O or S.
+
+With several systems, each object is named after its file. When the files are
+all called the same thing — ``apo/solvated.pdb``, ``holo/solvated.pdb`` — the
+directory above them is used instead, so the objects become ``apo`` and
+``holo``. ``--object`` names a single object.
 
 Selections are PyMOL syntax. Some that work:
 

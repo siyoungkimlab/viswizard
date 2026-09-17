@@ -30,7 +30,7 @@ superposed onto the first:
 Options (all optional; values may contain spaces):
 
   --ligand SEL   ligand selection, used for reps, coloring, pocket and the
-                 view center                      (default "resname LIG").
+                 view center           (default "chain LIG L or resname LIG").
                  If nothing matches, the protein alone is glued -- its
                  chains held together -- and shown.
   --glue SEL     what is held together across the periodic boundary
@@ -160,7 +160,7 @@ proc vizard_main {} {
         }
     }
 
-    set ligsel "resname LIG"
+    set ligsel "chain LIG L or resname LIG"
     if {[info exists A(ligand)] && $A(ligand) ne ""} { set ligsel $A(ligand) }
     set gluesel "protein or ($ligsel)"
     if {[info exists A(glue)] && $A(glue) ne ""} { set gluesel $A(glue) }
