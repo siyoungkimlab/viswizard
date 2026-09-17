@@ -79,6 +79,16 @@ Add a function key too if you want one:
 ``browse off`` puts back whatever those were bound to. Left and right are left
 alone throughout, so they keep stepping trajectory frames.
 
+Crystal structures
+------------------
+
+A structure from RCSB carries a crystallographic cell, not a periodic box, so
+there is nothing to make whole and nothing to wrap — it is only aligned. The
+tell is the spacegroup: an MD box is written as ``P 1``, while a deposited
+structure has a real one (``P 21 21 21``, ``C 1 2 1``, …), whose angles need
+not be 90° either. Gluing against such a cell used to move the odd crystal
+water a whole cell vector, or fail outright on a non-90° angle.
+
 Movies
 ------
 

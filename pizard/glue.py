@@ -30,6 +30,10 @@ except ImportError:          # the numpy core is importable, and tested, without
 __all__ = ["glue_traj"]
 
 
+def _fail(msg):
+    raise (pymol.CmdException if pymol is not None else RuntimeError)(msg)
+
+
 def _indices(sel):
     """Internal atom indices (0-based) for a selection.
 
@@ -240,16 +244,37 @@ def _process(nstates, fetch, load, cells, t, fit_idx, wrap=1, threads=1, block=1
             load(states, fut.result())
 
 
+def _cell_kind(sym):
+    """What one state's symmetry is: box, crystal, triclinic or none.
+
+    Only a "box" is a periodic MD cell that the PBC steps may touch.  A
+    crystal structure's cell is not one: wrapping its waters around the
+    protein moves them a whole cell vector, and its angles need not be 90
+    degrees at all.  An MD box is written as P 1; anything else
+    (P 21 21 21, C 1 2 1 ...) came from a diffraction experiment.
+    """
+    # a boxless file reports a placeholder rather than nothing
+    if not sym or min(sym[:3]) <= 2.0:
+        return "none"
+    if _is_crystal(sym):
+        return "crystal"
+    if not np.allclose(sym[3:6], 90.0):
+        return "triclinic"
+    return "box"
+
+
+def _is_crystal(sym):
+    """True for a diffraction cell, i.e. any spacegroup other than P 1."""
+    sg = str(sym[6]).strip() if sym is not None and len(sym) > 6 else ""
+    return bool(sg) and sg.replace(" ", "").upper() != "P1"
+
+
 def _cell(obj, state):
-    """Orthorhombic cell edges of one state, or None when there is no usable cell."""
+    """Orthorhombic cell edges of one state, or None when there is no usable box."""
     # per state: an NPT box changes size from frame to frame
     sym = cmd.get_symmetry(obj, state)
-    if not sym or min(sym[:3]) <= 2.0:
-        # a boxless file reports a placeholder: the PBC steps would destroy
-        # the structure, so that state is aligned only
+    if _cell_kind(sym) != "box":
         return None
-    if not np.allclose(sym[3:6], 90.0):
-        raise pymol.CmdException("triclinic cell not supported")
     return np.array(sym[:3], dtype=float)
 
 
@@ -266,7 +291,7 @@ def glue_traj(glue="polymer", fit="polymer and name CA", obj=None, wrap=1,
     nat, start, nbr = _adjacency(obj)
     gidx = _indices("(%s) and (%s)" % (obj, glue))
     if not len(gidx):
-        raise pymol.CmdException("glue selection matched nothing")
+        _fail("glue selection matched nothing")
     t = _Topology(nat, start, nbr, gidx)
     if not quiet:
         print("glue: %d atoms in %d components; %d other molecules"
@@ -274,12 +299,22 @@ def glue_traj(glue="polymer", fit="polymer and name CA", obj=None, wrap=1,
 
     fit_idx = _indices("(%s) and (%s)" % (obj, fit))
     if len(fit_idx) < 3:
-        raise pymol.CmdException("fit selection needs at least 3 atoms")
+        _fail("fit selection needs at least 3 atoms")
 
     nstates = cmd.count_states(obj)
     cells = [_cell(obj, st) for st in range(1, nstates + 1)]
-    if cells[0] is None and not quiet:
-        print("glue: no usable periodic cell -- aligning only")
+    # said even when quiet: "the trajectory is not glued" is not a detail
+    if cells[0] is None:
+        sym = cmd.get_symmetry(obj, 1)
+        kind = _cell_kind(sym)
+        if kind == "crystal":
+            print("glue: %s is a crystal cell, not a periodic box"
+                  " -- aligning only" % str(sym[6]).strip())
+        elif kind == "triclinic":
+            print("glue: triclinic box (%.1f %.1f %.1f, %.1f %.1f %.1f)"
+                  " not supported -- aligning only" % tuple(sym[:6]))
+        else:
+            print("glue: no usable periodic cell -- aligning only")
 
     def fetch(states):
         # get_coords, NOT get_coordset: coordset rows are not ordered by the
