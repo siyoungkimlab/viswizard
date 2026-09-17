@@ -74,6 +74,9 @@ Options (all optional):
 
   --lig and --fit are accepted as aliases for --ligand and --align.
 
+In the session, "browse" steps through the structures one at a time with the
+up and down arrows, zoomed on the ligand; "browse off" stops.
+
 Selections are PyMOL syntax.  Some that work:
 
   --ligand "resn LIG"
@@ -283,6 +286,17 @@ def main(argv=None):
     cmd.mset("1 -%d" % max(cmd.count_states(n) for n in objs))
     print("pizard: ready -- %d object(s), %d states"
           % (len(objs), max(cmd.count_states(n) for n in objs)))
+
+    # Overlaid is the default view; browsing is one structure at a time, on
+    # the same ligand selection this session was set up around.
+    try:
+        import browse
+        browse.DEFAULT_SEL = o.ligand
+        if len(objs) > 1:
+            print("pizard: type  browse  to step through the %d structures"
+                  " with the up/down arrows" % len(objs))
+    except Exception as e:
+        print("pizard: browse unavailable (%s)" % e)
 
     if o.out:
         from movie import pizard_movie

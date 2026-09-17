@@ -34,6 +34,28 @@ Selections are PyMOL syntax. Some that work:
    --glue   "polymer or resn LIG or resn ZN"
 
 
+Browsing
+--------
+
+Several structures are loaded overlaid, each in its own color. To look at them
+one at a time instead:
+
+.. code-block:: text
+
+   PyMOL> browse                  # up/down arrows switch structure
+   PyMOL> browse chain L          # zoom on this selection instead
+   PyMOL> browse off              # show everything again
+
+Down goes to the next structure and up to the previous one, wrapping around.
+Each is shown alone and zoomed on its ligand — by default the same
+``--ligand`` selection the session was set up with — while the orientation
+stays put, so the structures can be compared from the same angle. One whose
+selection matches nothing is framed whole, and a ``--ref`` structure stays
+visible as context rather than being stepped through.
+
+PyMOL leaves the up and down arrows unbound (left and right step frames), so
+nothing is taken away; ``browse off`` puts back whatever was there.
+
 Movies
 ------
 
