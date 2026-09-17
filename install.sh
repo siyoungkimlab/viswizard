@@ -153,15 +153,15 @@ PRC="$HOME/.pymolrc.py"
 strip_block "$PRC" viswizard
 cat >> "$PRC" <<PRCEOF
 # >>> viswizard >>>
-# DMS reader/writer, MAE writer, and the MAE reader for open-source PyMOL,
-# so 'load x.dms' and 'save x.dms' just work.
+# DMS reader/writer, MAE writer, the MAE reader for open-source PyMOL (so
+# 'load x.dms' and 'save x.dms' just work), the movie command, and 'browse'.
 import os as _os, sys as _sys
 _vw = "$VIZ/pizard"
 if _os.path.isdir(_vw):
     if _vw not in _sys.path:
         _sys.path.insert(0, _vw)
     try:
-        import mae_reader, formats, movie
+        import mae_reader, formats, movie, browse
     except Exception as _e:
         print("viswizard: could not load format handlers: %s" % _e)
 # <<< viswizard <<<
