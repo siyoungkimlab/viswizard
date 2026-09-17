@@ -1,5 +1,6 @@
 """The numpy core of the PyMOL glue (pizard/glue.py), without PyMOL."""
 import numpy as np
+import pytest
 
 import glue
 
@@ -113,3 +114,27 @@ def test_states_without_a_cell_are_only_aligned():
         d_in = np.linalg.norm(truth[f][:, None] - truth[f][None], axis=2)
         d_out = np.linalg.norm(out[f][:, None] - out[f][None], axis=2)
         assert np.allclose(d_in, d_out)          # rigid: nothing was unwrapped
+
+
+def test_an_md_box_is_the_only_cell_the_pbc_steps_touch():
+    assert glue._cell_kind([70.0, 70.0, 70.0, 90.0, 90.0, 90.0, "P 1"]) == "box"
+
+
+def test_crystal_cells_are_not_periodic_boxes():
+    # right-angled but from a diffraction experiment: wrapping its waters
+    # around the protein would move them a whole cell vector
+    assert glue._cell_kind([50.8, 42.8, 29.0, 90.0, 90.0, 90.0,
+                            "P 21 21 21"]) == "crystal"
+    # the one that used to raise "triclinic cell not supported"
+    assert glue._cell_kind([88.3, 44.1, 50.4, 90.0, 95.4, 90.0,
+                            "C 1 2 1"]) == "crystal"
+
+
+def test_a_triclinic_md_box_is_reported_as_such():
+    assert glue._cell_kind([70.0, 70.0, 70.0, 109.5, 109.5, 109.5,
+                            "P 1"]) == "triclinic"
+
+
+def test_no_cell_and_placeholder_cells_are_skipped():
+    assert glue._cell_kind(None) == "none"
+    assert glue._cell_kind([1.0, 1.0, 1.0, 90.0, 90.0, 90.0, "P 1"]) == "none"

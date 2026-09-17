@@ -127,6 +127,42 @@ proc ::Glue::pbc_steps {molid a b c jsel edges csel msel wrap centersel wrapsel}
     }
 }
 
+# A crystal structure's cell is not a periodic box.  Wrapping its waters
+# around the protein moves them a whole cell vector, and its angles need not
+# be 90 degrees at all.  An MD box is written as P 1; anything else
+# (P 21 21 21, C 1 2 1 ...) came from a diffraction experiment -- a fetched
+# RCSB entry, say -- so there is nothing to make whole and nothing to wrap.
+#
+# VMD keeps the cell but not the spacegroup, so read it off the CRYST1 line of
+# the file the molecule came from.  Returns the reason to skip the PBC steps,
+# or "" to go ahead.
+proc ::Glue::crystal_cell {molid} {
+    lassign [molinfo $molid get {alpha beta gamma}] al be ga
+    foreach v [list $al $be $ga] {
+        if {abs($v - 90.0) > 0.01} {
+            return [format "triclinic cell (%.2f %.2f %.2f)" $al $be $ga]
+        }
+    }
+    set f [lindex [molinfo $molid get filename] 0 0]
+    if {$f eq "" || ![file readable $f]} { return "" }
+    if {[catch {open $f r} fh]} { return "" }
+    set sg ""
+    while {[gets $fh line] >= 0} {
+        if {[string range $line 0 5] eq "CRYST1"} {
+            set sg [string trim [string range $line 55 65]]
+            break
+        }
+        # the CRYST1 record comes before the coordinates, if it comes at all
+        if {[string range $line 0 3] eq "ATOM" ||
+            [string range $line 0 5] eq "HETATM"} break
+    }
+    close $fh
+    if {$sg ne "" && [string map {" " ""} $sg] ne "P1"} {
+        return "crystal cell ($sg)"
+    }
+    return ""
+}
+
 proc ::Glue::glue_traj {args} {
     # -join: which atoms to make whole.  Defaults to the glue selection;
     #   vizard never draws solvent, so joining it is wasted work.  Use
@@ -158,9 +194,10 @@ proc ::Glue::glue_traj {args} {
 
     # Several VMDs at once.  Only with a real cell: without one there is
     # nothing to do but the fit, which is cheap.
+    set crystal [crystal_cell $molid]
     set nw [nworkers $opt(-workers) $nf]
     lassign [molinfo $molid get {a b c} frame 0] a b c
-    if {$nw > 1 && $a > 2.0 && $b > 2.0 && $c > 2.0} {
+    if {$nw > 1 && $crystal eq "" && $a > 2.0 && $b > 2.0 && $c > 2.0} {
         if {[catch {parallel $molid [array get opt] $joinsel $nw} err]} {
             puts "glue: parallel run failed -- $err"
             puts "glue: gluing in this VMD instead"
@@ -204,10 +241,14 @@ proc ::Glue::glue_traj {args} {
         # whose bond exceeds half a cell -- which is every atom -- and silently
         # destroys the structure.  Nothing here is meaningful without a real
         # cell, so do the alignment only.
-        if {$a <= 2.0 || $b <= 2.0 || $c <= 2.0} {
+        if {$crystal ne "" || $a <= 2.0 || $b <= 2.0 || $c <= 2.0} {
             if {!$nopbc_warned} {
-                puts [format "glue: no usable periodic cell (%.2f x %.2f x %.2f A) --\
-                      skipping unwrap/glue/wrap, aligning only" $a $b $c]
+                if {$crystal ne ""} {
+                    puts "glue: $crystal, not a periodic box -- aligning only"
+                } else {
+                    puts [format "glue: no usable periodic cell (%.2f x %.2f x %.2f A) --\
+                          skipping unwrap/glue/wrap, aligning only" $a $b $c]
+                }
                 set nopbc_warned 1
             }
         } else {

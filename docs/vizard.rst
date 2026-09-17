@@ -89,6 +89,15 @@ pairs and re-fits while dropping outliers past ``-cutoff``, reporting how many
 residues matched and the final RMSD — judge the result by those two numbers,
 since unrelated proteins still produce a transform.
 
+Crystal structures
+------------------
+
+A structure from RCSB carries a crystallographic cell, not a periodic box, so
+it is only aligned — nothing is made whole and nothing is wrapped. VMD keeps
+the cell but not the spacegroup, so it is read from the ``CRYST1`` line of the
+file: an MD box is ``P 1``, a deposited structure has a real spacegroup. A
+cell with any angle other than 90° is skipped the same way.
+
 Speed
 -----
 
