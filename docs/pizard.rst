@@ -42,19 +42,42 @@ one at a time instead:
 
 .. code-block:: text
 
-   PyMOL> browse                  # up/down arrows switch structure
+   PyMOL> browse                  # s/w, j/k or down/up switch structure
    PyMOL> browse chain L          # zoom on this selection instead
    PyMOL> browse off              # show everything again
 
-Down goes to the next structure and up to the previous one, wrapping around.
-Each is shown alone and zoomed on its ligand — by default the same
+Each structure is shown alone and zoomed on its ligand — by default the same
 ``--ligand`` selection the session was set up with — while the orientation
-stays put, so the structures can be compared from the same angle. One whose
-selection matches nothing is framed whole, and a ``--ref`` structure stays
-visible as context rather than being stepped through.
+stays put, so they can be compared from the same angle. One whose selection
+matches nothing is framed whole, and a ``--ref`` structure stays visible as
+context rather than being stepped through.
 
-PyMOL leaves the up and down arrows unbound (left and right step frames), so
-nothing is taken away; ``browse off`` puts back whatever was there.
+``s`` or ``j`` is the next structure, ``w`` or ``k`` the previous, and so are
+the down and up arrows; all of them wrap around. Browsing takes the keyboard
+for the 3D window while it is on, so the keys work straight away; click the
+command line whenever you want to type there, and it behaves as usual, history
+and all. ``browse_next``/``browse_prev`` (``bnext``, ``bprev``) are the same
+step typed as a command, wherever the focus is.
+
+Nothing PyMOL already binds is taken. ``set_key`` is no use for this: it takes
+only F1–F12, left, right, pgup, pgdn, home, insert and the CTRL/ALT
+combinations — it refuses plain letters, and although it accepts ``up`` and
+``down`` it never fires them. The page keys are spoken for (scenes) and are
+missing from a Mac laptop keyboard anyway. So the keys come from a Qt event
+filter, which stands aside for text boxes and is removed by ``browse off``.
+
+PyMOL normally aims the 3D widget's keyboard focus at the command line — that
+is why typing in the viewport lands at the prompt, and why clicking the 3D
+window alone does not hand the keys over. Wizards drop that focus proxy to get
+the keyboard; browsing does the same, and ``browse off`` restores it.
+Add a function key too if you want one:
+
+.. code-block:: text
+
+   PyMOL> browse keys="F3 F4"     # next, previous, through set_key
+
+``browse off`` puts back whatever those were bound to. Left and right are left
+alone throughout, so they keep stepping trajectory frames.
 
 Movies
 ------
