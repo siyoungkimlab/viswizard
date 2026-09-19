@@ -111,6 +111,11 @@ Options
      - ``6``
      - ``6``
      - to show more or less of the binding site, in ångström
+   * - ``--strip``
+     - ``water or ions``
+     - ``solvent or inorganic``
+     - to keep solvent (``none``) or to drop more than the default, a
+       membrane say; dropped right after loading, which is most of the speed
    * - ``--ref``
      - –
      - –
