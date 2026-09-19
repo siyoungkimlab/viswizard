@@ -30,9 +30,13 @@ superposed onto the first:
 Options (all optional; values may contain spaces):
 
   --ligand SEL   ligand selection, used for reps, coloring, pocket and the
-                 view center           (default "chain LIG L or resname LIG").
-                 If nothing matches, the protein alone is glued -- its
-                 chains held together -- and shown.
+                 view center           (default "chain LIG L or resname LIG",
+                 and if nothing is called that, the vizard_ligand macro:
+                 what is left once protein, solvent, ions, lipid and sugar
+                 are out -- the ligand of a fetched entry).  If that finds
+                 nothing
+                 either, the protein alone is glued -- its chains held
+                 together -- and shown.
   --glue SEL     what is held together across the periodic boundary
                                                   (default "protein or (<ligand>)")
   --align SEL    what the trajectory is fitted on (default "protein and name CA")
@@ -222,6 +226,41 @@ proc vizard_main {} {
         if {[molinfo top get numframes] > 1} { animate delete beg 0 end 0 top }
     }
     mol top [lindex $mols 0]
+
+    # The default is a name, so it finds nothing in a structure whose ligand is
+    # called something else -- ACO, BEN, BTN.  Fall back to whatever is left
+    # once the protein, nucleic acids, solvent, ions, lipids and sugars are
+    # taken away: that is the ligand in a fetched entry.  Peptide caps and the
+    # usual crystallisation additives are not ligands and stay out of it.
+    if {![info exists A(ligand)] || $A(ligand) eq ""} {
+        set n 0
+        foreach m $mols { set s [atomselect $m $ligsel]; incr n [$s num]; $s delete }
+        if {$n == 0} {
+            # as a macro, so it reads as one word in the output and can be
+            # redefined: atomselect macro vizard_ligand "resname ACO"
+            # ions covers the usual resnames (NA, CL, SOD, CLA, POT ...) and
+            # the names catch an ion that arrived without one.  Caps are not
+            # protein as far as VMD is concerned, and neither caps nor the
+            # usual crystallisation additives are ligands.
+            atomselect macro vizard_ligand {not (protein or nucleic or water or
+                ions or lipid or glycan) and not name Na Cl NA CL and
+                not resname ACE NME NMA NH2 GOL SO4 PO4 EDO PEG MPD ACT DMS TRS}
+            set alt "vizard_ligand"
+            set n 0
+            foreach m $mols {
+                if {[catch {atomselect $m $alt} s]} { set n 0 ; break }
+                incr n [$s num] ; $s delete
+            }
+            if {$n > 0} {
+                puts "vizard: nothing called LIG -- taking the ligand as what is\
+                      left once protein, solvent, ions, lipid and sugar are out"
+                set ligsel $alt
+                if {![info exists A(glue)] || $A(glue) eq ""} {
+                    set gluesel "protein or ($ligsel)"
+                }
+            }
+        }
+    }
 
     foreach {label sel} [list ligand $ligsel glue $gluesel align $alignsel] {
         if {[catch {atomselect top "$sel"} s]} {
