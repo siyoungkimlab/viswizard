@@ -34,13 +34,15 @@ Options (all optional; values may contain spaces):
                  and if nothing is called that, the vizard_ligand macro:
                  what is left once protein, solvent, ions, lipid and sugar
                  are out -- the ligand of a fetched entry).  If that finds
-                 nothing
-                 either, the protein alone is glued -- its chains held
-                 together -- and shown.
+                 nothing either, the protein alone is glued -- its chains
+                 held together -- and shown.
   --glue SEL     what is held together across the periodic boundary
                                                   (default "protein or (<ligand>)")
   --align SEL    what the trajectory is fitted on (default "protein and name CA")
   --pocket A     pocket residue distance cutoff, angstroms      (default 6)
+  --strip SEL    dropped right after loading, since it is never drawn and it
+                 is most of the atoms         (default "water or ions";
+                 "none" keeps everything).  Crystal structures are left be.
   --ref FILE|ID  reference structure, a file or a 4-character PDB id (fetched
                  and cached in ~/.viswizard_cache).  Fitted internally
                  first, then put onto the reference by sequence alignment,
@@ -157,7 +159,7 @@ proc vizard_main {} {
 
     # A misspelt flag would otherwise be dropped in silence and you would get
     # the default selection while believing you had overridden it.
-    set known {ligand lig glue align fit pocket out ref size fps step zoom keep reframe files}
+    set known {ligand lig glue align fit pocket out ref size fps step zoom keep reframe strip files}
     foreach k [lsort [array names A]] {
         if {[lsearch -exact $known $k] < 0} {
             error "unknown option '--$k'; known options are --[join [lsort $known] { --}]"
@@ -170,6 +172,8 @@ proc vizard_main {} {
     if {[info exists A(glue)] && $A(glue) ne ""} { set gluesel $A(glue) }
     set alignsel "protein and name CA"
     if {[info exists A(align)] && $A(align) ne ""} { set alignsel $A(align) }
+    set stripsel "water or ions"
+    if {[info exists A(strip)] && $A(strip) ne ""} { set stripsel $A(strip) }
     set pocketcut 6.0
     if {[info exists A(pocket)] && $A(pocket) ne ""} {
         if {![string is double -strict $A(pocket)] || $A(pocket) <= 0} {
@@ -225,6 +229,47 @@ proc vizard_main {} {
         set mols [list [molinfo top]]
         if {[molinfo top get numframes] > 1} { animate delete beg 0 end 0 top }
     }
+    # ---- strip ------------------------------------------------------------
+    # Waters, ions and the like are never drawn and are most of the atoms, so
+    # dropping them makes the wrap step, the memory and every later redraw
+    # smaller.  VMD cannot delete atoms from a molecule, so write what is kept
+    # and load that back -- ~0.1 s for a 1000-frame box.  A crystal structure
+    # is left alone: rewriting it would lose the spacegroup on its CRYST1 line,
+    # which is what tells vizard not to treat its cell as a periodic box.
+    if {[string tolower $stripsel] ni {none "" 0}} {
+        set kept {}
+        foreach m $mols {
+            set keep ""
+            if {[catch {atomselect $m "not ($stripsel)"} s]} {
+                error "strip selection '$stripsel' is not valid VMD syntax: $s"
+            }
+            set nall [molinfo $m get numatoms]
+            set ncut [expr {$nall - [$s num]}]
+            if {$ncut == 0 || [$s num] == 0 || [::Glue::crystal_cell $m] ne ""} {
+                $s delete ; lappend kept $m ; continue
+            }
+            set dir [::Glue::tempdir]
+            set pdb [file join $dir solute.pdb]
+            set nf [molinfo $m get numframes]
+            $s writepdb $pdb
+            if {$nf > 1} {
+                set dcd [file join $dir solute.dcd]
+                animate write dcd $dcd sel $s waitfor all $m
+            }
+            $s delete
+            mol delete $m
+            set new [mol new $pdb waitfor all]
+            if {$nf > 1} {
+                mol addfile $dcd waitfor all $new
+                animate delete beg 0 end 0 $new
+            }
+            lappend kept $new
+            puts [format "vizard: molid %-3s dropped %d of %d atoms (%s);\
+                  --strip none keeps them" $m $ncut $nall $stripsel]
+        }
+        set mols $kept
+    }
+
     mol top [lindex $mols 0]
 
     # The default is a name, so it finds nothing in a structure whose ligand is

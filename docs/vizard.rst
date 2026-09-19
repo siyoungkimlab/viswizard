@@ -114,6 +114,16 @@ cell with any angle other than 90° is skipped the same way.
 Speed
 -----
 
+Waters and ions are never drawn and are most of the atoms, so they are dropped
+as soon as the trajectory is loaded — ``--strip`` decides what goes, and
+``--strip none`` keeps everything. VMD cannot delete atoms from a molecule, so
+what is kept is written out and loaded back, which takes about 0.1 s for a
+1000-frame box. On a 47k-atom system that turns a 9.5 s start-up into 2.9 s
+and drops the trajectory in memory from 564 MB to 57 MB; the protein ends up
+in exactly the same place, to 0.0 Å. A crystal structure is left alone, since
+rewriting it would lose the spacegroup that keeps its cell from being treated
+as a periodic box.
+
 A long trajectory is glued by several VMD processes at once: each takes a
 consecutive range of frames, and the ranges are loaded back in order.
 ``-workers`` sets how many (default one per CPU, up to 8, and at least 25

@@ -71,6 +71,9 @@ Options (all optional):
                  and cached).  The trajectory is put onto it with cealign,
                  which is structure-based, so numbering need not match.
   --object NAME  object name to load into          (default "sys")
+  --strip SEL    thrown away right after loading, since it is never drawn
+                 and it is most of the atoms  (default "solvent or inorganic"
+                 -- waters and ions; "none" keeps everything)
 
   --lig and --fit are accepted as aliases for --ligand and --align.
 
@@ -107,6 +110,8 @@ def main(argv=None):
                    help="reference structure; the trajectory is put onto it "
                         "with cealign after the internal alignment")
     p.add_argument("--object", dest="obj", default="sys")
+    p.add_argument("--strip", dest="strip", default="solvent or inorganic",
+                   help="dropped after loading; 'none' keeps everything")
     p.add_argument("--out", dest="out", default=None,
                    help="render a video instead of opening a session")
     p.add_argument("--size", dest="size", default="", help="with --out, WxH")
@@ -179,6 +184,18 @@ def main(argv=None):
         objs.append(name)
         print("pizard: %-16s %6d atoms, %3d states" %
               (name, cmd.count_atoms(name), cmd.count_states(name)))
+
+    # Waters and ions are never drawn, and they are most of the atoms: dropping
+    # them here makes the gluing, the memory and every later redraw smaller.
+    # It has to happen after load_traj, which needs the atom count to match.
+    if str(o.strip).strip().lower() not in ("none", "0", ""):
+        for name in objs:
+            sel = "(%s) and (%s)" % (name, o.strip)
+            n = cmd.count_atoms(sel)
+            if n and n < cmd.count_atoms(name):
+                cmd.remove(sel)
+                print("pizard: %-16s dropped %d atoms (%s); --strip none keeps them"
+                      % (name, n, o.strip))
 
     gluesel = o.glue or "polymer or (%s)" % o.ligand
     print("pizard: ligand '%s'   glue '%s'   align '%s'"

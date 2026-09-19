@@ -79,6 +79,23 @@ Add a function key too if you want one:
 ``browse off`` puts back whatever those were bound to. Left and right are left
 alone throughout, so they keep stepping trajectory frames.
 
+Speed
+-----
+
+Waters and ions are never drawn and are most of the atoms, so they are dropped
+as soon as the trajectory is loaded — ``--strip`` decides what goes, and
+``--strip none`` keeps everything. On a 47k-atom box with 1000 states that
+takes 0.04 s and makes everything after it smaller: the glue goes from 3.5 s
+to 0.45 s, the session from 5.7 s to 2.5 s, and the trajectory in memory from
+564 MB to 57 MB. The protein and ligand end up in exactly the same place
+either way.
+
+.. code-block:: bash
+
+   pizard sys.pdb traj.dcd --strip "solvent or inorganic"   # the default
+   pizard sys.pdb traj.dcd --strip "solvent or resn POPC"   # membrane too
+   pizard sys.pdb traj.dcd --strip none                     # keep it all
+
 Crystal structures
 ------------------
 
