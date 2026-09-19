@@ -92,7 +92,7 @@ Options
      - ``pizard`` (PyMOL)
      - When to use it
    * - ``--ligand``, ``--lig``
-     - ``chain LIG L or resname LIG``
+     - ``chain LIG L or resname LIG``, else ``vizard_ligand``
      - ``organic and not resn ACE+NMA+NME``
      - whenever the default catches the wrong thing — in ``vizard``, a ligand
        that is neither called ``LIG`` nor in chain ``LIG``/``L``. With no

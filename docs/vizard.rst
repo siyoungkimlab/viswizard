@@ -11,7 +11,20 @@ vizard (VMD)
 
 ``--ligand`` defaults to ``chain LIG L or resname LIG`` — a ligand named
 ``LIG``, or one sitting in chain ``LIG`` or ``L`` — so it often needs no flag.
-With nothing matching, the protein alone is glued and shown.
+When nothing is called that, as in a fetched entry whose ligand is ``ACO`` or
+``BEN``, it falls back to the ``vizard_ligand`` macro: whatever is left once
+protein, nucleic acids, solvent, ions, lipid and sugar are taken away, minus
+peptide caps (``ACE``, ``NME``, ``NMA``, ``NH2`` — VMD does not count those as
+protein) and the usual crystallisation additives (``GOL``, ``SO4``, ``EDO``,
+…). Ions are dropped by resname and by atom name, so a stray ``Na`` or ``Cl``
+does not come through as a ligand. Redefine it if it catches the wrong thing:
+
+.. code-block:: tcl
+
+   atomselect macro vizard_ligand "resname ACO"
+
+If that finds nothing either — an apo simulation — the protein alone is glued
+and shown.
 
 Selections are VMD syntax. Some that work:
 
