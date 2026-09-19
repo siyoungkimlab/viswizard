@@ -42,13 +42,15 @@ vizard_movie -- render the loaded trajectory to a video (Tachyon + ffmpeg).
   -zoom F        scale multiplier, >1 tightens     (default 1)
   -reframe 1     re-fit on ligand + pocket         (default 0: keep your view)
   -keep 1        keep the intermediate TGA frames  (default 0)
+  -ao 0          render without shadows + ambient occlusion, which is
+                 quicker and flatter                (default 1)
 
 Rotate and zoom the view first; by default the movie uses exactly what you see.
 }
         return
     }
     array set opt {-out movie.mp4 -size "" -fps 24 -step 1 -zoom 1.0 \
-                   -reframe 0 -keep 0 -molid top}
+                   -reframe 0 -keep 0 -ao 1 -molid top}
     array set opt $args
     set molid $opt(-molid)
     if {$molid eq "top"} { set molid [molinfo top] }
@@ -77,16 +79,28 @@ Rotate and zoom the view first; by default the movie uses exactly what you see.
     set tmp [file join [file dirname $out] "vizard_frames_[pid]"]
     file mkdir $tmp
 
+    # Tachyon renders with whatever the display is set to, and vizard keeps
+    # shadows and ambient occlusion off so that redrawing stays quick.  A
+    # render is not interactive, so put them back on for the duration -- the
+    # movie is what they are for -- and restore them afterwards, error or not.
+    set ao_was [display get ambientocclusion]
+    set sh_was [display get shadows]
+    if {$opt(-ao)} { display shadows on ; display ambientocclusion on }
+
     puts "movie: rendering $nf frames at ${W}x${H} (every $opt(-step))"
     set t0 [clock milliseconds]
     set i 0
-    for {set n 0} {$n < $nf} {incr n $opt(-step)} {
-        animate goto $n
-        display update
-        render TachyonInternal [format "%s/f%05d.tga" $tmp $i]
-        incr i
-        if {$i % 25 == 0} { puts "movie:   $i frames" }
-    }
+    set rc [catch {
+        for {set n 0} {$n < $nf} {incr n $opt(-step)} {
+            animate goto $n
+            display update
+            render TachyonInternal [format "%s/f%05d.tga" $tmp $i]
+            incr i
+            if {$i % 25 == 0} { puts "movie:   $i frames" }
+        }
+    } err]
+    display shadows $sh_was ; display ambientocclusion $ao_was
+    if {$rc} { error $err }
     set dt [expr {([clock milliseconds]-$t0)/1000.0}]
     puts [format "movie: rendered %d frames in %.1f s (%.2f s/frame)" \
           $i $dt [expr {$dt/$i}]]

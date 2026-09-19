@@ -71,6 +71,9 @@ Then, at the vmd> prompt:
   vizard_movie -h                    movie options
   browse                             step through the loaded molecules with
                                      the up/down arrows (bnext, bprev, off)
+  ao off                             drop shadows + ambient occlusion, which
+                                     are recomputed on every redraw (ao on
+                                     puts them back; movies render with them)
   glue_center -reps {1 2}            re-frame on ligand + pocket
   glue_strip -sel "protein or resname LIG" -o solute
                                      write a small, already-glued trajectory
@@ -435,6 +438,9 @@ proc vizard_main {} {
         display depthcue on
         display culling off
         display antialias on
+        # Shadows and ambient occlusion are recomputed on every redraw, so on
+        # a big enough system they cost something; "ao off" turns them off
+        # when the pace matters more than the picture.
         display shadows on
         display ambientocclusion on
         display aoambient 0.85
@@ -537,6 +543,10 @@ proc vizard_main {} {
           view centered on [expr {$haslig ? "'$ligsel'" : "the protein"}]"
     if {[info commands vizard_movie] ne ""} {
         puts "vizard: type  vizard_movie -out movie.mp4   to render a video"
+    }
+    if {[info commands vizard_ao] ne ""} {
+        puts "vizard: type  ao off  if redraws feel slow -- it drops the\
+              shadows and ambient occlusion, which are recomputed on each one"
     }
     if {[llength $mols] > 1 && [info commands vizard_browse] ne ""} {
         puts "vizard: type  browse  to step through the [llength $mols]\

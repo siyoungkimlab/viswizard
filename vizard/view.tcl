@@ -94,6 +94,25 @@ proc vizard_pick {{state on}} {
     }
 }
 
+# Shadows and ambient occlusion are recomputed on every redraw, so on a big
+# enough system they cost something; vizard turns them on for the look, and
+# this turns them off when the pace matters more than the picture.  Tachyon
+# renders with whatever the display is set to, so vizard_movie turns them on
+# for the render itself whatever the display says, and puts it back after.
+proc vizard_ao {{state on}} {
+    if {[lsearch -exact {on 1 yes true} [string tolower $state]] >= 0} {
+        display shadows on
+        display ambientocclusion on
+        puts "vizard: shadows + ambient occlusion ON -- prettier, slower to redraw"
+    } else {
+        display shadows off
+        display ambientocclusion off
+        puts "vizard: shadows + ambient occlusion off -- quicker redraws"
+    }
+    catch {display update}
+}
+
+interp alias {} ao       {} vizard_ao
 interp alias {} view     {} vizard_focus
 interp alias {} focuson  {} vizard_focus
 interp alias {} zoomto   {} vizard_focus
