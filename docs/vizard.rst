@@ -50,6 +50,7 @@ not only ones started through ``vizard``.
 ============================================  ==========================================
 Command                                       What it does
 ============================================  ==========================================
+``ao off``                                    drop shadows + AO, for speed
 ``browse``                                    step through the molecules
 ``view 1 0``                                  frame on rep 1 of molid 0
 ``viewsel "resid 45"``                        frame on any selection
@@ -103,7 +104,13 @@ Movies
    vizard_movie -out movie.mp4                  ; # exactly the view you see
    vizard_movie -out m.mp4 -size {1920 1080} -fps 30
    vizard_movie -out preview.mp4 -step 10       ; # every 10th frame
+   vizard_movie -out flat.mp4 -ao 0             ; # no shadows, quicker
    vizard_movie -h
+
+Tachyon renders with whatever the display is set to, so the movie turns
+shadows and ambient occlusion on for the render itself — even if ``ao off`` is
+in force — and puts the display back afterwards. ``-ao 0`` skips them, which
+is flatter and about three times quicker per frame.
 
 Rendering is done by Tachyon in memory and muxed with ffmpeg, and works
 headless. Budget roughly 1.2 s/frame at 640×360 and 1.7 s/frame at 960×540.
@@ -136,6 +143,11 @@ cell with any angle other than 90° is skipped the same way.
 
 Speed
 -----
+
+Shadows and ambient occlusion are recomputed on every redraw, so on a big
+enough system they cost something. vizard turns them on for the look;
+``ao off`` drops them when the pace matters more than the picture, and
+``ao on`` puts them back. Movies render with them either way.
 
 Waters and ions are never drawn and are most of the atoms, so they are dropped
 as soon as the trajectory is loaded — ``--strip`` decides what goes, and
