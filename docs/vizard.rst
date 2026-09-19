@@ -50,6 +50,7 @@ not only ones started through ``vizard``.
 ============================================  ==========================================
 Command                                       What it does
 ============================================  ==========================================
+``browse``                                    step through the molecules
 ``view 1 0``                                  frame on rep 1 of molid 0
 ``viewsel "resid 45"``                        frame on any selection
 ``pick on``                                   shift + left-click an atom to focus it
@@ -65,6 +66,28 @@ Command                                       What it does
 ``view``, ``mm``, ``movie``, ``fetch``, ``reps`` and ``pick`` are aliases; the
 ``vizard_*`` names always work. It is not called ``focus`` because in a GUI
 session Tk is loaded and ``focus`` is Tk's own keyboard-focus command.
+
+Browsing
+--------
+
+Several molecules are loaded overlaid, each in its own color. To look at them
+one at a time instead:
+
+.. code-block:: tcl
+
+   browse                  ; # Up/Down over the graphics window switch molecule
+   browse off              ; # show them all again
+
+Down is the next molecule and Up the previous, both wrapping around;
+``bnext`` and ``bprev`` do the same typed, wherever the mouse is. Each
+molecule is shown alone and framed on its ligand and pocket, while the
+orientation stays put, so they can be compared from the same angle. A
+``--ref`` structure stays on as context rather than being stepped through.
+
+The arrows are what VMD leaves free — most letters are taken, ``j``/``k`` and
+``h``/``l`` rotate, ``r``/``t``/``s`` are mouse modes, ``+``/``-`` step frames
+— and ``browse off`` puts back whatever they were bound to. The keys act while
+the mouse is over the graphics window, as all of VMD's hotkeys do.
 
 Framing
 -------

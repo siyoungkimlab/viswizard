@@ -69,6 +69,8 @@ Then, at the vmd> prompt:
 
   vizard_movie -out movie.mp4        render the trajectory to a video
   vizard_movie -h                    movie options
+  browse                             step through the loaded molecules with
+                                     the up/down arrows (bnext, bprev, off)
   glue_center -reps {1 2}            re-frame on ligand + pocket
   glue_strip -sel "protein or resname LIG" -o solute
                                      write a small, already-glued trajectory
@@ -112,7 +114,7 @@ proc vizard_main {} {
     if {[info commands glue_traj] eq ""} {
         error "sourced $glue but glue_traj is undefined"
     }
-    foreach _f {movie formats align view} {
+    foreach _f {movie formats align view browse} {
         catch { uplevel #0 [list source [file join [file dirname $glue] $_f.tcl]] }
     }
     puts "vizard: using $glue"
@@ -372,6 +374,7 @@ proc vizard_main {} {
         mol material Transparent
         mol addrep $refmol
         mol top $trajmol
+        set ::vizard_ref $refmol
         puts "vizard: reference '$A(ref)' loaded as molid $refmol"
     }
 
@@ -534,6 +537,10 @@ proc vizard_main {} {
           view centered on [expr {$haslig ? "'$ligsel'" : "the protein"}]"
     if {[info commands vizard_movie] ne ""} {
         puts "vizard: type  vizard_movie -out movie.mp4   to render a video"
+    }
+    if {[llength $mols] > 1 && [info commands vizard_browse] ne ""} {
+        puts "vizard: type  browse  to step through the [llength $mols]\
+              molecules with the up/down arrows"
     }
 }
 
