@@ -78,7 +78,9 @@ Options (all optional):
   --lig and --fit are accepted as aliases for --ligand and --align.
 
 In the session, "browse" steps through the structures one at a time with the
-up and down arrows, zoomed on the ligand; "browse off" stops.
+up and down arrows, zoomed on the ligand; "browse off" stops.  "ligand" and
+"pocket" are named selections of what --ligand matched and the residues around
+it, to type against or click in the object panel.
 
 Selections are PyMOL syntax.  Some that work:
 
@@ -274,6 +276,7 @@ def main(argv=None):
 
     nonpolar_h = "hydro and not (neighbor (elem N+O+S))"
     focus = []
+    lig_parts, pocket_parts = [], []
     for i, name in enumerate(objs):
         si = i % len(schemes)
         cartoon_c, _mid, lig_c = schemes[si]
@@ -295,7 +298,26 @@ def main(argv=None):
             cmd.color(lig_c, lig)
             cmd.util.cnc(lig)
             focus += [lig, pocket]
+            lig_parts.append(lig)
+            pocket_parts.append(pocket)
         print("pizard: %-16s %s%s" % (name, hue, "" if has_lig else "  (no ligand)"))
+
+    # "ligand" and "pocket" as named selections, to type at the prompt and to
+    # click in the object panel -- the nearest thing PyMOL has to VMD's
+    # macros, since it has no user-defined selection keywords.  They are fixed
+    # atom sets rather than expressions, which is all a fixed topology needs,
+    # and it is what the pocket already was: evaluated once, not per state.
+    for label, parts in (("ligand", lig_parts), ("pocket", pocket_parts)):
+        if not parts:
+            continue
+        expr = " or ".join("(%s)" % part for part in parts)
+        try:
+            n = cmd.select(label, expr)
+        except Exception:           # an object of that name owns the name
+            label = "pizard_" + label
+            n = cmd.select(label, expr)
+        print("pizard: selection '%s' -- %d atoms" % (label, n))
+    cmd.deselect()                  # no pink dots over the ligand
 
     cmd.set("stick_radius", 0.15)
     cmd.set("line_width", 1.4)

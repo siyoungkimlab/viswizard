@@ -34,6 +34,24 @@ Selections are PyMOL syntax. Some that work:
    --glue   "polymer or resn LIG or resn ZN"
 
 
+Selections
+----------
+
+Two named selections are made on start-up: ``ligand``, what ``--ligand``
+matched, and ``pocket``, the residues around it. They are there to type
+against and to click in the object panel:
+
+.. code-block:: text
+
+   PyMOL> show spheres, ligand
+   PyMOL> iterate pocket and name CA, print(resi, resn)
+
+PyMOL has no user-defined selection keywords — no equivalent of VMD's
+``vizard_ligand`` macro — so these are fixed sets of atoms rather than
+expressions that get re-evaluated. That is what the pocket already was, and a
+topology does not change. If an object of your own is called ``ligand``, the
+selection becomes ``pizard_ligand`` instead.
+
 Browsing
 --------
 
