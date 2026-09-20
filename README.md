@@ -57,6 +57,14 @@ it.
 - **Formats VMD cannot handle.** It reads `.mae` but cannot write it and has no
   DMS plugin at all; its Tcl has no `sqlite3`. Both are supplied, and work in
   PyMOL too.
+- **Runs N' Poses / PLINDER systems by id.** `pizard rnp
+  8g62__1__1.A__1.F_1.J_1.L 1.F` opens that system and zooms on that ligand.
+  The chain letters are mmCIF `label_asym_id`s, not author chains — in 8G62
+  every ligand is author chain A — so the selections are built on `segi`,
+  where PyMOL keeps them. A local `ground_truth/` is preferred over RCSB, and
+  a downloaded CIF is deleted as soon as it is loaded. The entry's electron
+  density comes with it — PDBe's 2Fo-Fc map, meshed at 1σ around the ligand, or
+  `--density fofc` for the difference map at ±3σ.
 - **Movies in one line, in either viewer.** `vizard_movie -out movie.mp4` and
   `pizard_movie out=movie.mp4` render what you are looking at and mux with
   ffmpeg. Both work headless, and `--out` does it straight from the command
