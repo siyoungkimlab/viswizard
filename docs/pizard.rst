@@ -34,6 +34,90 @@ Selections are PyMOL syntax. Some that work:
    --glue   "polymer or resn LIG or resn ZN"
 
 
+Runs N' Poses / PLINDER systems
+-------------------------------
+
+.. code-block:: bash
+
+   pizard rnp 8g62__1__1.A__1.F_1.J_1.L        # the whole system
+   pizard rnp 8g62__1__1.A__1.F_1.J_1.L 1.F    # zoomed on that one ligand
+
+A PLINDER system id already says which chains the complex is:
+
+.. code-block:: text
+
+   8g62 __ 1 __ 1.A __ 1.F_1.J_1.L
+   ^       ^     ^      ^
+   PDB     |     |      ligand chains, joined by "_"
+   entry   |     receptor chains, joined by "_"
+           biological assembly
+
+so ``rnp`` opens it without being told anything else. The entry is downloaded
+from RCSB unless an unpacked ``ground_truth/`` has it — ``$RNP_GROUND_TRUTH``,
+then ``~/runs-n-poses/ground_truth``, then ``~/data/paper_data/ground_truth``,
+then ``./ground_truth`` — in which case the benchmark's own pose is used, since
+that is the one its numbers were computed against. A downloaded CIF goes to a
+temporary directory and is deleted the moment it is loaded; nothing is left in
+the working directory.
+
+Everything outside the system's own chains is dropped, which matters because an
+entry often holds several copies of the complex: 8G62 has three, and the other
+two would be superposed on top of what you are looking at. Name a ligand chain
+and that one gets the sticks and the zoom while the rest of the system's
+ligands are drawn as grey lines — they are part of the crystal contents the
+pose has to share its pocket with, so they are worth seeing, just not worth
+centring on. ``1.F`` and ``F`` both name the same chain.
+
+The chain letters are mmCIF ``label_asym_id``\ s, **not** author chains. In
+8G62 all three ligands are author chain A — F is the inhibitor YOO, J and L are
+acetates from the buffer — so ``chain F`` would select nothing at all. PyMOL
+keeps ``label_asym_id`` in the segment identifier, which is why the selections
+this builds are ``segi``:
+
+.. code-block:: text
+
+   PyMOL> iterate segi F and name C10, print(resn, chain, resi)
+   YOO A 503
+
+A PLINDER ground-truth ``system.cif`` needs no translation: its chains are
+already called ``1.A`` and ``1.F``, and the selection becomes ``segi 1.F``.
+
+Electron density
+~~~~~~~~~~~~~~~~
+
+The entry's map comes too, from PDBe — there is a ready-made one per X-ray
+entry, so nothing has to be phased here:
+
+.. code-block:: bash
+
+   pizard rnp 8g62__1__1.A__1.F_1.J_1.L 1.F                    # 2Fo-Fc, 1 sigma
+   pizard rnp 8g62__1__1.A__1.F_1.J_1.L 1.F --density fofc     # Fo-Fc, +/-3 sigma
+   pizard rnp 8g62__1__1.A__1.F_1.J_1.L 1.F --density both
+   pizard rnp 8g62__1__1.A__1.F_1.J_1.L 1.F --density off
+   pizard rnp 8g62__1__1.A__1.F_1.J_1.L 1.F --sigma 1.5 --carve 2.5
+
+``2fofc`` (the default) is the map the model was built into, drawn as a blue
+mesh at ``--sigma`` sigma. ``fofc`` is the difference map: green at +3 sigma
+where there is density the model does not explain, red at −3 sigma where an
+atom sits in none. The mesh is carved to within ``--carve`` angstroms of the
+ligand and nothing else, because the question a map answers here is whether
+this pose is the one the crystal shows — a mesh over the whole pocket buries
+that in the protein's own density.
+
+The maps go to the same temporary directory as the CIF and are deleted once
+PyMOL has them, and the map objects themselves are loaded but disabled: what
+you look at is the mesh. They are on the crystal cell, with the symmetry in
+their own header, which is how PyMOL places a mesh on a ligand whose
+coordinates are outside the deposited box.
+
+Density is skipped, with a line saying why, when the entry has none (an NMR or
+cryo-EM entry, or no deposited structure factors), when ``--ref`` has moved the
+structure out of the crystal frame, and when the system is an assembly copy
+rather than the deposited chains.
+
+Every other flag still applies, so ``--pocket 8``, ``--ref 1ubq`` and ``--out
+movie.mp4`` work as they do anywhere else.
+
 Selections
 ----------
 

@@ -51,6 +51,7 @@ pizard -- glue a ligand to its protein across PBC, align, and set up a view,
 in PyMOL.  (vizard is the same thing for VMD.)
 
   pizard topology [trajectory] [options]
+  pizard rnp SYSTEM_ID [LIGAND_CHAIN] [options]
   pizard sys.pdb traj.dcd
   pizard sys.pdb traj.dcd --ligand "resn LIG"
   pizard sys.dms --ligand "resn LIG" --pocket 8
@@ -74,8 +75,36 @@ Options (all optional):
   --strip SEL    thrown away right after loading, since it is never drawn
                  and it is most of the atoms  (default "solvent or inorganic"
                  -- waters and ions; "none" keeps everything)
+  --density WHAT  rnp only: electron density to load from PDBe -- 2fofc
+                 (default), fofc, both, or off
+  --sigma N      2Fo-Fc contour level, in sigma            (default 1)
+  --carve A      mesh kept within this far of the ligand   (default 1.8)
+  --only SEL     everything outside this is thrown away right after loading,
+                 which is how "rnp" keeps one PLINDER system out of an entry
+                 that holds several copies  (default: keep everything)
 
   --lig and --fit are accepted as aliases for --ligand and --align.
+
+Runs N' Poses / PLINDER systems, by id:
+
+  pizard rnp 8g62__1__1.A__1.F_1.J_1.L        the whole system
+  pizard rnp 8g62__1__1.A__1.F_1.J_1.L 1.F    zoomed on that ligand
+
+The id says which chains the system is: 8g62, assembly 1, receptor 1.A,
+ligands 1.F, 1.J and 1.L.  Those letters are mmCIF label_asym_ids, not author
+chains -- in 8G62 all three ligands are author chain A -- and PyMOL keeps
+label_asym_id in segi, so the ligand ends up being "segi F".  Everything
+outside the system's own chains is dropped, a second ligand chain is drawn as
+grey lines for context, and the named one gets the reps and the zoom.  An
+unpacked ground_truth/ is used when it is there ($RNP_GROUND_TRUTH, or
+~/runs-n-poses/ground_truth); otherwise the entry is downloaded from RCSB into
+a temporary directory and the file is deleted as soon as it is loaded.
+
+The entry's electron density comes too, from PDBe: the 2Fo-Fc map, meshed at 1
+sigma within 1.8 A of the ligand, so the pose can be compared against what the
+crystal shows.  --density fofc draws the difference map instead, at +/-3 sigma,
+green where the model explains too little and red where it explains nothing;
+--density both draws them together, and --density off skips the download.
 
 In the session, "browse" steps through the structures one at a time with the
 up and down arrows, zoomed on the ligand; "browse off" stops.  "ligand" and
@@ -96,11 +125,91 @@ DMS and MAE load directly; ~/.pymolrc.py registers the handlers.
 """
 
 
+def _drop_coordless(name):
+    """Remove atoms that have no coordinates in state 1.
+
+    An mmCIF may carry an atom whose position was never determined -- a zero
+    occupancy CA in a PLINDER ground-truth system.cif, say.  PyMOL keeps it as
+    an atom that iterate counts and get_model does not return, and anything
+    that pairs an index with a coordinate (gluing, fitting) is then off by the
+    number of them.  They cannot be drawn either, so drop them on the way in.
+    """
+    have, every = [], []
+    cmd.iterate_state(1, name, "have.append(index)", space={"have": have})
+    cmd.iterate(name, "every.append(index)", space={"every": every})
+    missing = sorted(set(every) - set(have))
+    if not missing:
+        return 0
+    cmd.remove("(%s) and index %s" % (name, "+".join(str(i) for i in missing)))
+    print("pizard: %-16s dropped %d atom(s) with no coordinates"
+          % (name, len(missing)))
+    return len(missing)
+
+
+def _density(ctx, rnp_mod, obj, lig_sel, kinds, sigma, carve):
+    """Load PDBe maps for a PLINDER system and mesh them around the ligand.
+
+    The mesh is carved around the ligand and nothing else: the question a map
+    answers here is whether this pose is the one the crystal actually shows,
+    and a mesh over the whole pocket buries the answer in the protein's own
+    density.  2Fo-Fc is drawn at +sigma, Fo-Fc at +/-3 sigma -- green where the
+    model explains too little, red where it explains nothing.
+    """
+    cmd.set("mesh_width", 0.5)
+    # Loading a map is loading an object, and auto_zoom would pull the camera
+    # out to the whole unit cell -- undoing the zoom on the ligand that is the
+    # reason any of this is on the screen.
+    auto_zoom = cmd.get("auto_zoom")
+    cmd.set("auto_zoom", 0)
+    try:
+        _meshes(ctx, rnp_mod, obj, lig_sel, kinds, sigma, carve)
+    finally:
+        cmd.set("auto_zoom", auto_zoom)
+
+
+def _meshes(ctx, rnp_mod, obj, lig_sel, kinds, sigma, carve):
+    for kind in kinds:
+        path = rnp_mod.fetch_map(ctx.system.pdb_id, kind, ctx.tempdir())
+        if path is None:
+            print("pizard rnp: no %s map for %s -- not an X-ray entry, or no "
+                  "structure factors deposited" % (kind, ctx.system.pdb_id.upper()))
+            continue
+        mp = "map_%s" % kind
+        cmd.load(path, mp, format="ccp4")
+        # normalize_ccp4_maps is on by default, so a level is in sigma
+        if kind == "2fofc":
+            levels = [("dens_2fofc", float(sigma), "skyblue")]
+        else:
+            levels = [("dens_fofc_pos", 3.0, "green"),
+                      ("dens_fofc_neg", -3.0, "red")]
+        drawn = []
+        for name, level, color in levels:
+            cmd.isomesh(name, mp, level, lig_sel, carve=float(carve))
+            cmd.color(color, name)
+            drawn.append("%s at %+.1f sigma" % (color, level))
+        cmd.disable(mp)          # the map itself is not a thing to look at
+        print("pizard rnp: %s mesh -- %s, carved %.1f A around the ligand"
+              % (kind, ", ".join(drawn), float(carve)))
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if "--help" in argv or "-h" in argv:
         print(HELP)
         return
+
+    # "pizard rnp <system id> [<ligand chain>]" is the same session set up from
+    # a Runs N' Poses / PLINDER id instead of a file: rnp.prepare() works out
+    # which file to open and which chains the system is, and hands back an
+    # ordinary pizard command line, so everything below runs unchanged.
+    rnp_ctx = None
+    if argv and argv[0].lower() in ("rnp", "plinder"):
+        import rnp as rnp_mod
+        rnp_ctx = rnp_mod.prepare(argv[1:])
+        print(rnp_mod.describe(rnp_ctx))
+        for note in rnp_ctx.notes:
+            print("pizard rnp: %s" % note)
+        argv = rnp_ctx.argv
     p = argparse.ArgumentParser(prog="pizard", add_help=False)
     p.add_argument("files", nargs="+")
     p.add_argument("--ligand", "--lig", dest="ligand", default=DEFAULT_LIGAND)
@@ -114,6 +223,16 @@ def main(argv=None):
     p.add_argument("--object", dest="obj", default="sys")
     p.add_argument("--strip", dest="strip", default="solvent or inorganic",
                    help="dropped after loading; 'none' keeps everything")
+    p.add_argument("--density", dest="density", default="2fofc",
+                   help="rnp only: 2fofc (default), fofc, both or off")
+    p.add_argument("--sigma", dest="sigma", type=float, default=1.0,
+                   help="2Fo-Fc contour level in sigma (default 1)")
+    p.add_argument("--carve", dest="carve", type=float, default=1.8,
+                   help="mesh is kept within this many A of the ligand "
+                        "(default 1.8)")
+    p.add_argument("--only", dest="only", default=None,
+                   help="everything outside this selection is dropped right "
+                        "after loading")
     p.add_argument("--out", dest="out", default=None,
                    help="render a video instead of opening a session")
     p.add_argument("--size", dest="size", default="", help="with --out, WxH")
@@ -183,9 +302,25 @@ def main(argv=None):
             name = created[0]
         for t in trajs:
             cmd.load_traj(t, name, state=1)   # state=1 overwrites topology frame
+        _drop_coordless(name)
         objs.append(name)
         print("pizard: %-16s %6d atoms, %3d states" %
               (name, cmd.count_atoms(name), cmd.count_states(name)))
+
+    # --only is the opposite of --strip: a PLINDER system is a few chains of an
+    # entry that may hold several copies of the complex, and the rest of them
+    # would be superposed on top of what is being looked at.
+    if o.only and str(o.only).strip().lower() not in ("none", ""):
+        for name in objs:
+            sel = "(%s) and not (%s)" % (name, o.only)
+            n = cmd.count_atoms(sel)
+            if n and n < cmd.count_atoms(name):
+                cmd.remove(sel)
+                print("pizard: %-16s kept %s, dropped %d atoms"
+                      % (name, o.only, n))
+            elif n:
+                raise SystemExit("pizard: --only '%s' matches nothing in %s"
+                                 % (o.only, name))
 
     # Waters and ions are never drawn, and they are most of the atoms: dropping
     # them here makes the gluing, the memory and every later redraw smaller.
@@ -319,9 +454,39 @@ def main(argv=None):
         print("pizard: selection '%s' -- %d atoms" % (label, n))
     cmd.deselect()                  # no pink dots over the ligand
 
+    # The system's other ligands: not what the zoom is for, but they are part
+    # of the crystal contents the pose has to share the pocket with, so they
+    # are drawn -- thin and grey -- rather than left invisible.
+    if rnp_ctx is not None and rnp_ctx.others:
+        others = "(%s) and (%s)" % (
+            objs[0], rnp_mod.selection(rnp_ctx.others, rnp_ctx.local))
+        if cmd.count_atoms(others):
+            cmd.show("lines", others)
+            cmd.color("grey50", others)
+            cmd.util.cnc(others)
+            print("pizard rnp: %s drawn as grey lines"
+                  % "+".join(rnp_ctx.others))
+
     cmd.set("stick_radius", 0.15)
     cmd.set("line_width", 1.4)
     cmd.zoom(" or ".join("(%s)" % f for f in focus) if focus else "polymer", buffer=2.0)
+    # ---- electron density, for a PLINDER system ---------------------------
+    if rnp_ctx is not None:
+        kinds = rnp_mod.density_kinds(o.density)
+        if kinds and o.ref:
+            print("pizard rnp: no density -- the structure was moved onto %s, "
+                  "and the map stays in the crystal frame" % o.ref)
+        elif kinds and any(rnp_mod.instance(c) != 1
+                           for c in rnp_ctx.system.chains):
+            print("pizard rnp: no density -- this system is an assembly copy, "
+                  "and the map is on the deposited cell")
+        elif kinds:
+            _density(rnp_ctx, rnp_mod, objs[0],
+                     "(%s) and (%s)" % (objs[0], o.ligand),
+                     kinds, o.sigma, o.carve)
+        # Everything downloaded is in PyMOL's memory now.
+        rnp_ctx.cleanup()
+
     cmd.mset("1 -%d" % max(cmd.count_states(n) for n in objs))
     print("pizard: ready -- %d object(s), %d states"
           % (len(objs), max(cmd.count_states(n) for n in objs)))
