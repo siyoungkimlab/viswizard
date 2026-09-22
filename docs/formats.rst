@@ -51,3 +51,9 @@ In a PyMOL session
    PyMOL> save out.pdb, polymer or resn LIG
    PyMOL> save out.dms, polymer or resn LIG
    PyMOL> save out.mae, polymer or resn LIG
+
+An MAE can hold several blocks. When they all sit in the same box they are one
+simulation system — Desmond writes the solute, the waters and the ions as
+separate blocks — and they load as one object, in file order, which is what a
+trajectory numbers its atoms against and what VMD does. Blocks without a
+common box, such as a set of poses, load as separate objects.

@@ -101,3 +101,33 @@ def test_absent_values(tmp_path):
                                  '1 8 0.0 0.0 0.0 1 <> " OW "'))
     ct = mae_reader.parse_mae(str(p))[0]
     assert ct["atoms"][0]["resn"] == ""
+
+
+def _ct(tmp_path, text=MINIMAL):
+    p = tmp_path / "one.mae"
+    p.write_text(text)
+    return mae_reader.parse_mae(str(p))[0]
+
+
+def test_merge_keeps_file_order_and_renumbers_bonds(tmp_path):
+    ct = _ct(tmp_path)
+    merged = mae_reader.merge_cts([ct, ct, ct])
+    assert len(merged["atoms"]) == 6
+    # each block's bond 0-1 moves along with its atoms
+    assert merged["bonds"] == [(0, 1, 1), (2, 3, 1), (4, 5, 1)]
+    assert [a["name"] for a in merged["atoms"]] == ["OW", "HW1"] * 3
+    assert merged["cell"] == ct["cell"]
+
+
+def test_blocks_in_one_box_are_one_system(tmp_path):
+    ct = _ct(tmp_path)
+    assert mae_reader.one_system([ct, ct])            # solute + water + ions
+    assert not mae_reader.one_system([ct])            # nothing to merge
+
+
+def test_blocks_without_a_common_box_stay_apart(tmp_path):
+    ct = _ct(tmp_path)
+    other = dict(ct, cell=[40.0, 40.0, 40.0, 90.0, 90.0, 90.0])
+    boxless = dict(ct, cell=None)
+    assert not mae_reader.one_system([ct, other])     # different boxes
+    assert not mae_reader.one_system([boxless, boxless])   # poses, say

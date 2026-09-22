@@ -13,6 +13,12 @@ and the chorus box becomes the object's unit cell.
 
 Handles: gzip (.maegz, .mae.gz), multiple f_m_ct blocks, quoted strings with
 escapes, <> for absent values, and .cms files (the full_system ct wins).
+
+Blocks that all sit in the same box are one simulation system -- Desmond
+writes the solute, the waters and the ions as separate blocks -- and they are
+loaded as one object, in file order, which is what a trajectory numbers its
+atoms against and what VMD does.  Blocks without a common box (a set of poses,
+say) are loaded as separate objects, or states when they are the same size.
 """
 import gzip
 import os
@@ -254,8 +260,32 @@ def _cell(props):
     return [norm(va), norm(vb), norm(vc), ang(vb, vc), ang(va, vc), ang(va, vb)]
 
 
+def merge_cts(cts):
+    """One ct from several: atoms in file order, bonds renumbered to match."""
+    atoms, bonds, off = [], [], 0
+    for ct in cts:
+        atoms.extend(ct["atoms"])
+        bonds.extend((i + off, j + off, o) for i, j, o in ct["bonds"])
+        off += len(ct["atoms"])
+    return {"props": dict(cts[0]["props"]), "atoms": atoms, "bonds": bonds,
+            "cell": cts[0]["cell"]}
+
+
+def one_system(cts):
+    """Are these blocks one simulation system?  They are if they share a box.
+
+    Desmond splits a solvated system into a solute block, a water block and an
+    ion block, all carrying the same chorus box; a trajectory then numbers the
+    atoms across every block in file order.  Blocks with no box, or different
+    boxes, are separate things -- poses, say -- and stay separate.
+    """
+    if len(cts) < 2 or not cts[0]["cell"]:
+        return False
+    return all(c["cell"] == cts[0]["cell"] for c in cts)
+
+
 def load_mae(filename, object="", state=0, quiet=1, multiplex=-1, zoom=-1,
-             _self=None):
+             merge=-1, _self=None):
     from chempy import Atom, Bond
     from chempy.models import Indexed
     if _self is None:
@@ -264,6 +294,12 @@ def load_mae(filename, object="", state=0, quiet=1, multiplex=-1, zoom=-1,
     cts = parse_mae(filename)
     if not cts:
         raise Exception("no ct blocks in %s" % filename)
+    # merge: 1 always, 0 never, -1 when the blocks are one system
+    if int(merge) > 0 or (int(merge) < 0 and one_system(cts)):
+        if len(cts) > 1 and not int(quiet):
+            print(" MAE: %d blocks share a box -- one system, one object"
+                  % len(cts))
+        cts = [merge_cts(cts)]
 
     base = object or re.sub(r"\.(mae|maegz|cms)(\.gz)?$", "",
                             os.path.basename(filename), flags=re.I)
