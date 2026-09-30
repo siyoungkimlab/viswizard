@@ -518,9 +518,11 @@ proc vizard_main {} {
         # VMD's own cartoon styles want atoms named CA -- so its backbone
         # beads, bonded to their neighbours above, are drawn as Licorice,
         # which comes out as the same continuous trace.
+        set psel "protein"
         if {[lsearch -exact $cgmols [molinfo top]] >= 0} {
+            set psel "name BB GC"
             mol representation Licorice 0.60 20.0 20.0
-            mol selection "name BB GC"
+            mol selection $psel
             mol color ColorID 10
         } else {
             mol representation NewCartoon 0.30 20.0 4.1 0
@@ -543,7 +545,7 @@ proc vizard_main {} {
             # pocket: whole residues within --pocket A of the ligand.  Distance-based, so it
             # must be re-evaluated every frame or it freezes at frame 0.
             mol representation Licorice 0.08 24.0 24.0
-            mol selection "(same residue as (protein and within $pocketcut of ($ligsel))) and $shown"
+            mol selection "(same residue as ($psel and within $pocketcut of ($ligsel))) and $shown"
             mol color Name
             mol material AOChalky
             mol addrep top

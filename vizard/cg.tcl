@@ -94,23 +94,32 @@ proc vizard_cg_elements {{molid top} {quiet 0}} {
 # either: they follow atoms named CA, and renaming a bead would break every
 # selection that looks for it.  Bonding each backbone bead to the next one in
 # its chain and drawing Licorice gives the same continuous backbone.
-proc vizard_cg_bonds {{molid top} {quiet 0}} {
+proc vizard_cg_bonds {{molid top} {quiet 0} {cutoff 6.0}} {
     if {$molid eq "top"} { set molid [molinfo top] }
     set bb [atomselect $molid "name BB GC"]
-    if {[$bb num] < 2} { $bb delete ; return 0 }
+    set nbb [$bb num]
+    if {$nbb < 2} { $bb delete ; return 0 }
     set all [atomselect $molid all]
     set bonds [$all getbonds]
     set idx [$bb list]
     set ch [$bb get chain]
-    set rid [$bb get resid]
     set sg [$bb get segname]
+    set crd [$bb get {x y z}]
     set added 0
+    set c2 [expr {$cutoff * $cutoff}]
     for {set i 0} {$i < [llength $idx] - 1} {incr i} {
         set j [expr {$i + 1}]
-        # consecutive residues of one chain, so a gap stays a gap
+        # One chain only, so two chains that happen to touch stay apart.
         if {[lindex $ch $i] ne [lindex $ch $j]} continue
         if {[lindex $sg $i] ne [lindex $sg $j]} continue
-        if {[lindex $rid $j] - [lindex $rid $i] != 1} continue
+        # Neighbours by distance, not by residue number: a renumbered or
+        # gapped chain would get no bonds at all from "resid + 1", and
+        # isolated beads look exactly like nothing being drawn.  A break in
+        # the chain is far further apart than the ~3.5 A between beads.
+        lassign [lindex $crd $i] xi yi zi
+        lassign [lindex $crd $j] xj yj zj
+        set dx [expr {$xj-$xi}] ; set dy [expr {$yj-$yi}] ; set dz [expr {$zj-$zi}]
+        if {$dx*$dx + $dy*$dy + $dz*$dz > $c2} continue
         set a [lindex $idx $i]
         set b [lindex $idx $j]
         if {[lsearch -exact [lindex $bonds $a] $b] >= 0} continue
@@ -121,7 +130,8 @@ proc vizard_cg_bonds {{molid top} {quiet 0}} {
     $all setbonds $bonds
     $all delete ; $bb delete
     if {!$quiet} {
-        puts "cgbonds: molid $molid -- bonded $added backbone beads to the next"
+        puts "cgbonds: molid $molid -- bonded $added of $nbb backbone beads to\
+              the next (within $cutoff A)"
     }
     return $added
 }

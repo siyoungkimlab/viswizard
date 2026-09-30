@@ -209,6 +209,13 @@ proc vizard_reps {molid args} {
     if {$opt(-color) >= 0} { set lc $opt(-color) }
     if {$opt(-proteincolor) >= 0} { set pc $opt(-proteincolor) }
 
+    # A coarse-grained model has no "protein" as far as VMD is concerned, and
+    # no backbone for a cartoon to follow, so its backbone beads stand in and
+    # are drawn as Licorice -- see cg.tcl.
+    set cg [expr {[info commands ::CG::coarse_grained] ne ""
+                  && [::CG::coarse_grained $molid]}]
+    set psel [expr {$cg ? "name BB GC" : "protein"}]
+
     set lig $opt(-ligand)
     if {$lig eq ""} { set lig "not (protein or nucleic or water or ions)" }
     set ls [atomselect $molid $lig]
@@ -234,8 +241,12 @@ proc vizard_reps {molid args} {
 
     while {[molinfo $molid get numreps] > 0} { mol delrep 0 $molid }
 
-    mol representation NewCartoon 0.30 20.0 4.1 0
-    mol selection "protein"
+    if {$cg} {
+        mol representation Licorice 0.60 20.0 20.0
+    } else {
+        mol representation NewCartoon 0.30 20.0 4.1 0
+    }
+    mol selection $psel
     mol color ColorID $pc
     mol material AOChalky
     mol addrep $molid
@@ -263,7 +274,7 @@ proc vizard_reps {molid args} {
 
         mol representation Licorice 0.08 24.0 24.0
         mol selection \
-            "(same residue as (protein and within $opt(-pocket) of ($lig))) and $shown"
+            "(same residue as ($psel and within $opt(-pocket) of ($lig))) and $shown"
         mol color ColorID $pc
         mol material AOChalky
         mol addrep $molid
