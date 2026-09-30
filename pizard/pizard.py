@@ -393,8 +393,11 @@ def main(argv=None):
             # One bead per residue is all a coarse-grained model gives, and
             # cartoon_trace_atoms is what PyMOL has for exactly that: it
             # traces the beads themselves instead of looking for a backbone.
-            cmd.set("cartoon_trace_atoms", 1)
-            cmd.set("cartoon_tube_radius", 1.0)
+            # on the object, not globally: as a global these would trace
+            # the cartoon of everything loaded afterwards -- a structure
+            # fetched later would come out as a tube through all its atoms
+            cmd.set("cartoon_trace_atoms", 1, name)
+            cmd.set("cartoon_tube_radius", 1.0, name)
             cmd.cartoon("tube", "(%s) and %s" % (name, _cg.backbone_selection()))
             cmd.show("cartoon", "(%s) and %s" % (name, _cg.backbone_selection()))
         else:
