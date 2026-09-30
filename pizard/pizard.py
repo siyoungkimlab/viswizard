@@ -46,9 +46,13 @@ from glue import glue_traj
 # PyMOL counts them as organic because they are not standard residues.
 DEFAULT_LIGAND = "organic and not resn ACE+NMA+NME"
 
-# What the trajectory is fitted on: CA for an all-atom model, BB for a Martini
-# one, GC for SIRAH.  A coarse-grained model has no CA at all.
-DEFAULT_FIT = "(polymer and name CA) or name BB+GC"
+# What the trajectory is fitted on: CA for an all-atom model, and CA again for
+# a coarse-grained one, whose backbone bead -- Martini's BB, SIRAH's GC -- is
+# renamed CA as the file is read.  "elem C" is what keeps a calcium ion, also
+# called CA, out of the fit; it does the job "polymer and name CA" used to do,
+# and it works on a model PyMOL never called a polymer.  The bead names cover a
+# model loaded outside pizard, under the names its file uses.
+DEFAULT_FIT = "(name CA and elem C) or name BB+GC"
 
 # Thrown away right after loading: waters and ions, which are never drawn.
 DEFAULT_STRIP = "solvent or inorganic"
@@ -73,7 +77,7 @@ Options (all optional):
   --glue SEL     held together across the periodic boundary
                                                    (default "polymer or (<ligand>)")
   --align SEL    what the trajectory is fitted on
-                 (default "(polymer and name CA) or name BB+GC" -- CA for an
+                 (default "(name CA and elem C) or name BB+GC" -- CA for an
                  all-atom model, BB for Martini, GC for SIRAH)
   --pocket A     pocket residue cutoff, angstroms  (default 6)
   --ref FILE|ID  reference structure, a file or a 4-character PDB id (fetched
@@ -207,27 +211,52 @@ def main(argv=None):
     cg_solute = {}
     for obj in objs:
         beads = set()
-        cmd.iterate(obj, "out.add(name)", space={"out": beads})
+        # text_type holds the bead's own name when the model came in through
+        # the DMS or MAE reader, which renames the backbone bead CA
+        cmd.iterate(obj, "out.add(name); out.add(text_type)", space={"out": beads})
+        beads.discard("")
         if not _cg.looks_coarse_grained(beads):
             continue
         cg_objs.add(obj)
-        cg_solute[obj] = _cg.solute_selection(beads)
+        cg_solute[obj] = _cg.solute_selection(beads, rename=True)
+        # The DMS and MAE readers do this while reading the file, which is the
+        # only moment align and super can be rescued -- see cg.pymol_atom --
+        # and they leave the bead's own name in text_type to say they did.
+        if cmd.count_atoms("(%s) and text_type %s"
+                           % (obj, "+".join(_cg.BACKBONE))):
+            print("pizard: %-16s coarse-grained: %d beads, %d of them backbone,"
+                  " read as a protein"
+                  % (obj, cmd.count_atoms(obj),
+                     cmd.count_atoms("(%s) and name %s" % (obj, _cg.CA))))
+            continue
+        # A file PyMOL read itself, a Martini PDB or GRO, is still worth
+        # correcting: the elements make the colours and the radii right, and
+        # the rename plus a sort gets the guide atoms, the cartoon and cealign.
+        # cmd.sort is the part that re-runs the classification; altering names
+        # alone changes nothing.  align and super stay out of reach, since
+        # PyMOL settled what this model was while it read it.
         n = 0
         for bead, elem in sorted(_cg.elements(beads).items()):
             n += cmd.alter("(%s) and name %s" % (obj, bead), "elem=%r" % elem)
-        print("pizard: %-16s coarse-grained: gave %d beads their element" % (obj, n))
+        nb = cmd.alter("(%s) and %s" % (obj, _cg.backbone_selection()),
+                       "name=%r" % _cg.CA)
+        cmd.sort(obj)
+        print("pizard: %-16s coarse-grained: gave %d beads their element,"
+              " renamed %d backbone beads %s" % (obj, n, nb, _cg.CA))
 
     # Waters and ions are never drawn, and they are most of the atoms: dropping
     # them here makes the gluing, the memory and every later redraw smaller.
     # It has to happen after load_traj, which needs the atom count to match.
     if str(o.strip).strip().lower() not in ("none", "0", ""):
         for name in objs:
-            # PyMOL's polymer/organic/inorganic flags are set when a file is
-            # read and do not follow the element, so every bead of a
-            # coarse-grained model counts as "inorganic" -- the default strip
-            # would throw the whole model away.  Its water is resname W, which
-            # "solvent" does not match either, so there is nothing here for it
-            # to do; --strip "resn W+WF" still works when asked for.
+            # The DMS and MAE readers mark the beads of an amino acid as
+            # polymer, so the default strip would no longer throw a Martini
+            # peptide away -- but a bead it did not recognise, in a nucleic
+            # acid or a lipid, still counts as "inorganic", and a file PyMOL
+            # read itself counts as that throughout.  Martini water is
+            # resname W, which "solvent" does not match either, so there is
+            # nothing here worth the risk; --strip "resn W+WF" still works
+            # when asked for.
             if name in cg_objs and o.strip == DEFAULT_STRIP:
                 print("pizard: %-16s coarse-grained: keeping every bead"
                       " (--strip \"resn W+WF\" drops Martini water)" % name)
@@ -287,12 +316,10 @@ def main(argv=None):
         return rows
 
     def put_onto(target, mobile, what):
-        # cealign is structure-based, so residue numbering need not match --
-        # but it prints its own error before failing, so do not even offer it
-        # a coarse-grained model.
-        first = "coarse-grained: cealign needs CA atoms"
-        if mobile in cg_objs or target in cg_objs:
-            return _put_onto_by_sequence(target, mobile, what, first)
+        # cealign is structure-based, so residue numbering need not match.  A
+        # coarse-grained model goes through it too, now that its backbone beads
+        # are CA atoms PyMOL recognises.
+        first = None
         try:
             r = cmd.cealign(target, mobile)
             msg = "pizard: %s onto %s -- RMSD %.3f over %d atoms" % (
@@ -306,12 +333,9 @@ def main(argv=None):
         _put_onto_by_sequence(target, mobile, what, first)
 
     def _put_onto_by_sequence(target, mobile, what, first):
-        # Every PyMOL aligner -- cealign, align, super -- works from CA atoms
-        # and the polymer flag, and a coarse-grained model has neither: the
-        # flag is set when the file is read, from names PyMOL does not know,
-        # and it cannot be set afterwards (nor by renaming the bead to CA, nor
-        # by saving and reloading).  So do it here, by sequence, with the
-        # superposition vizard's matchmaker already uses.
+        # When PyMOL's own aligners will not do it -- too few residues for
+        # cealign, say -- fall back on the sequence superposition vizard's
+        # matchmaker already uses, which only needs one bead per residue.
         try:
             import superpose as _sp
             R, t, rms, n0, kept = _sp.superpose(_fit_beads(mobile), _fit_beads(target))
@@ -398,8 +422,9 @@ def main(argv=None):
             # fetched later would come out as a tube through all its atoms
             cmd.set("cartoon_trace_atoms", 1, name)
             cmd.set("cartoon_tube_radius", 1.0, name)
-            cmd.cartoon("tube", "(%s) and %s" % (name, _cg.backbone_selection()))
-            cmd.show("cartoon", "(%s) and %s" % (name, _cg.backbone_selection()))
+            trace = "(%s) and name %s" % (name, _cg.CA)
+            cmd.cartoon("tube", trace)
+            cmd.show("cartoon", trace)
         else:
             cmd.show("cartoon", "(%s) and polymer" % name)
         cmd.set("cartoon_color", cartoon_c, name)

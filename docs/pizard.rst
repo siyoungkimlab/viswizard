@@ -117,17 +117,36 @@ either way.
 Coarse-grained models
 ---------------------
 
-The fit selection covers them: ``CA`` for an all-atom model, ``BB`` for
-Martini, ``GC`` for SIRAH — one bead per residue in each case, which is what
-the fit and the sequence superposition want. A coarse-grained model has no
-``CA`` at all, and PyMOL's ``polymer`` does not match its beads either, hence the
-``or name`` half of the default.
-
 Such a file names beads, not atoms, and says nothing about elements, so each
 bead is given the element it stands for: ``BB`` and Martini's side-chain beads
 carbon, SIRAH's ``GN``/``GC``/``GO`` nitrogen, carbon and oxygen — SIRAH names
 a bead for the atom it is centred on, so the second letter is the element —
 water beads oxygen, and an ion bead its own ion. PyMOL would otherwise guess from the name and read Martini water ``W`` as tungsten, the sodium bead ``SOD`` as sulfur, and the glycerol beads ``GL1``/``GL2`` as an element ``G`` that does not exist.
+
+The backbone bead — Martini's ``BB``, SIRAH's ``GC`` — is renamed ``CA`` on the
+way in, and the beads of an amino acid are marked as polymer. That is what
+makes PyMOL treat the model as a protein: ``polymer`` selects it, the residues
+get guide atoms, and ``align``, ``super``, ``cealign`` and the GUI's
+**action → align → to molecule** all work on it, against another
+coarse-grained model or against a structure you fetched. The bead's own name
+is kept in ``text_type``, so ``iterate`` still tells you what it was.
+
+This has to happen while the file is being read. PyMOL settles what each
+residue is as it reads it and does not revisit the question, so a bead that
+arrived with a bogus element is not part of a protein and cannot be made into
+one afterwards: correcting the elements and re-sorting brings back the guide
+atoms and ``cealign``, but ``align`` and ``super`` stay broken. The DMS and
+MAE readers therefore do it in place, as the model is built. A coarse-grained
+PDB or GRO is read by PyMOL itself, before pizard sees it, so such a model
+gets its elements, its cartoon and ``cealign``, but not ``align`` and
+``super``.
+
+The fit selection follows from the rename: ``(name CA and elem C) or name
+BB+GC`` — one bead per residue, which is what the fit and the sequence
+superposition want. The ``elem C`` half is what keeps a calcium ion, also
+called ``CA``, out of the fit; it is exactly what ``polymer and name CA`` used
+to do, and it works on a model PyMOL never called a polymer. ``name BB+GC``
+covers a model loaded outside pizard, under the names its file uses.
 
 The backbone gets a cartoon, through ``cartoon_trace_atoms``, which is PyMOL's setting for exactly this: it traces the beads themselves rather than looking for a backbone, drawn as a tube. A plain cartoon on the same beads draws nothing at all.
 

@@ -105,9 +105,11 @@ Options
        second chain
    * - ``--align``, ``--fit``
      - ``(protein and name CA) or name BB GC``
-     - ``(polymer and name CA) or name BB+GC``
+     - ``(name CA and elem C) or name BB+GC``
      - to fit on a domain or a loop instead of the whole protein. The default
-       covers all-atom (``CA``), Martini (``BB``) and SIRAH (``GC``) models
+       covers all-atom (``CA``), Martini (``BB``) and SIRAH (``GC``) models.
+       ``pizard`` renames a backbone bead ``CA`` as it reads it, so ``elem C``
+       is what keeps a calcium ion out of the fit
    * - ``--pocket``
      - ``6``
      - ``6``
