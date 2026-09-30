@@ -204,12 +204,14 @@ def main(argv=None):
     # stands for, so colours and the element category are right.
     import cg as _cg
     cg_objs = set()
+    cg_solute = {}
     for obj in objs:
         beads = set()
         cmd.iterate(obj, "out.add(name)", space={"out": beads})
         if not _cg.looks_coarse_grained(beads):
             continue
         cg_objs.add(obj)
+        cg_solute[obj] = _cg.solute_selection(beads)
         n = 0
         for bead, elem in sorted(_cg.elements(beads).items()):
             n += cmd.alter("(%s) and name %s" % (obj, bead), "elem=%r" % elem)
@@ -249,18 +251,24 @@ def main(argv=None):
             print("pizard: %s -- align selection matches %d atoms, skipping" % (name, na))
             continue
         # the default glue names the ligand; an explicit --glue is kept as given
-        g = gluesel if nl or o.glue else "polymer"
-        if not (nl or o.glue):
-            print("pizard: %s -- no ligand matched; gluing polymer only" % name)
-        if not o.glue and not cmd.count_atoms("(%s) and (%s)" % (name, g)):
-            # "polymer" matches nothing in a coarse-grained model: PyMOL sets
-            # that flag when the file is read, from names it does not know.
-            # The beads themselves are what is left to glue.
-            beads = set()
-            cmd.iterate(name, "out.add(name)", space={"out": beads})
-            g = _cg.solute_selection(beads) or ""
-            if g:
-                print("pizard: %s -- gluing its beads (%s)" % (name, g))
+        if o.glue:
+            g = gluesel
+        elif name in cg_objs:
+            # "polymer" matches nothing in a coarse-grained model -- PyMOL
+            # sets that flag when the file is read, from names it does not
+            # know -- so the beads themselves are what there is to glue, and
+            # the ligand goes with them as it would for an all-atom model.
+            solute = cg_solute.get(name, "")
+            g = solute or "polymer"
+            if solute and nl:
+                g = "(%s) or (%s)" % (solute, o.ligand)
+            if solute:
+                print("pizard: %-16s coarse-grained: gluing %s%s"
+                      % (name, solute, " with the ligand" if nl else ""))
+        else:
+            g = gluesel if nl else "polymer"
+            if not nl:
+                print("pizard: %s -- no ligand matched; gluing polymer only" % name)
         if not g or not cmd.count_atoms("(%s) and (%s)" % (name, g)):
             print("pizard: %s -- nothing to glue; aligning on the fit selection"
                   % name)
@@ -271,11 +279,20 @@ def main(argv=None):
     # glue_traj has already fitted every state onto state 1, so moving an
     # object rigidly carries its whole trajectory.  cealign is structure-based,
     # so residue numbering need not match.
+    def _fit_beads(obj):
+        """(resname, x, y, z) for the fit selection, one per residue, in order."""
+        rows = []
+        cmd.iterate_state(1, "(%s) and (%s)" % (obj, o.align),
+                          "rows.append((resn, x, y, z))", space={"rows": rows})
+        return rows
+
     def put_onto(target, mobile, what):
         # cealign is structure-based, so residue numbering need not match --
-        # but it works from CA atoms, and a coarse-grained model has none:
-        # "CEalign-Error: Your target selection is too short".  align does the
-        # same job from the sequence, on whatever the fit selection matches.
+        # but it prints its own error before failing, so do not even offer it
+        # a coarse-grained model.
+        first = "coarse-grained: cealign needs CA atoms"
+        if mobile in cg_objs or target in cg_objs:
+            return _put_onto_by_sequence(target, mobile, what, first)
         try:
             r = cmd.cealign(target, mobile)
             msg = "pizard: %s onto %s -- RMSD %.3f over %d atoms" % (
@@ -286,15 +303,29 @@ def main(argv=None):
             return
         except Exception as ce:
             first = ce
+        _put_onto_by_sequence(target, mobile, what, first)
+
+    def _put_onto_by_sequence(target, mobile, what, first):
+        # Every PyMOL aligner -- cealign, align, super -- works from CA atoms
+        # and the polymer flag, and a coarse-grained model has neither: the
+        # flag is set when the file is read, from names PyMOL does not know,
+        # and it cannot be set afterwards (nor by renaming the bead to CA, nor
+        # by saving and reloading).  So do it here, by sequence, with the
+        # superposition vizard's matchmaker already uses.
         try:
-            r = cmd.align("(%s) and (%s)" % (mobile, o.align),
-                          "(%s) and (%s)" % (target, o.align))
-            msg = "pizard: %s onto %s -- RMSD %.3f over %d atoms (by sequence)" % (
-                mobile, what, r[0], r[1])
-            if r[0] > 5.0:
+            import superpose as _sp
+            R, t, rms, n0, kept = _sp.superpose(_fit_beads(mobile), _fit_beads(target))
+            M = [float(R[0][0]), float(R[0][1]), float(R[0][2]), float(t[0]),
+                 float(R[1][0]), float(R[1][1]), float(R[1][2]), float(t[1]),
+                 float(R[2][0]), float(R[2][1]), float(R[2][2]), float(t[2]),
+                 0.0, 0.0, 0.0, 1.0]
+            cmd.transform_object(mobile, M)
+            msg = ("pizard: %s onto %s -- RMSD %.3f over %d of %d residues"
+                   " (by sequence)" % (mobile, what, rms, kept, n0))
+            if rms > 5.0:
                 msg += "   <- high; same protein?"
             print(msg)
-        except Exception as e:
+        except BaseException as e:      # superpose exits when too little matches
             print("pizard: could not align %s onto %s (%s; %s)"
                   % (mobile, what, first, e))
 
@@ -351,7 +382,11 @@ def main(argv=None):
         hue = cartoon_c
         lig = "(%s) and (%s)" % (name, o.ligand)
         has_lig = cmd.count_atoms(lig) > 0
-        pocket = "byres ((%s) and polymer within %g of (%s))" % (name, o.pocket, lig)
+        # polymer is empty for a coarse-grained model, so measure the pocket
+        # from its beads instead -- otherwise there is no pocket at all
+        around = cg_solute.get(name) or "polymer"
+        pocket = "byres ((%s) and (%s) within %g of (%s))" % (
+            name, around, o.pocket, lig)
 
         cmd.hide("everything", name)
         if name in cg_objs:
