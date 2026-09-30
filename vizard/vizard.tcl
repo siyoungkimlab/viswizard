@@ -119,7 +119,7 @@ proc vizard_main {} {
     if {[info commands glue_traj] eq ""} {
         error "sourced $glue but glue_traj is undefined"
     }
-    foreach _f {movie formats align view browse} {
+    foreach _f {movie formats align view browse cg} {
         catch { uplevel #0 [list source [file join [file dirname $glue] $_f.tcl]] }
     }
     puts "vizard: using $glue"
@@ -277,6 +277,21 @@ proc vizard_main {} {
                   --strip none keeps them" $m $ncut $nall $stripsel]
         }
         set mols $kept
+    }
+
+    # A coarse-grained file names beads, not atoms: VMD leaves every one of
+    # them element X, atomic number 0, and a radius picked off the first
+    # letter -- 1.9 A for "SC1", which is sulfur's.  Give each bead the
+    # element it stands for, so colouring by element means something.
+    set cgmols {}
+    if {[info commands vizard_cg_elements] ne ""} {
+        foreach m $mols {
+            if {[::CG::coarse_grained $m]} {
+                lappend cgmols $m
+                vizard_cg_elements $m
+                vizard_cg_bonds $m
+            }
+        }
     }
 
     mol top [lindex $mols 0]
@@ -499,9 +514,19 @@ proc vizard_main {} {
 
         mol delrep 0 top
 
-        mol representation NewCartoon 0.30 20.0 4.1 0
-        mol selection "protein"
-        mol color Structure
+        # A coarse-grained model has no backbone for NewCartoon to follow --
+        # VMD's own cartoon styles want atoms named CA -- so its backbone
+        # beads, bonded to their neighbours above, are drawn as Licorice,
+        # which comes out as the same continuous trace.
+        if {[lsearch -exact $cgmols [molinfo top]] >= 0} {
+            mol representation Licorice 0.60 20.0 20.0
+            mol selection "name BB GC"
+            mol color ColorID 10
+        } else {
+            mol representation NewCartoon 0.30 20.0 4.1 0
+            mol selection "protein"
+            mol color Structure
+        }
         mol material AOChalky
         mol addrep top
         set rep_cartoon [expr {[molinfo top get numreps] - 1}]

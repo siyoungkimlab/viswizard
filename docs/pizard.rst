@@ -123,12 +123,20 @@ the fit and the sequence superposition want. A coarse-grained model has no
 ``CA`` at all, and PyMOL's ``polymer`` does not match its beads either, hence the
 ``or name`` half of the default.
 
-Two things such a file will not give you. Its beads sit ~3.5 Å apart, beyond
-any distance-based bond search, so it arrives with almost no bonds — VMD finds
-2 in a 9305-bead system — which leaves nothing for "make molecules whole" to
-work with: each bead is its own fragment. And Martini water is ``resname W``,
-which neither ``solvent`` matches, so ``--strip`` leaves it in place unless
-you name it: ``--strip "solvent or inorganic or resn W+WF"``.
+Such a file names beads, not atoms, and says nothing about elements, so each
+bead is given the element it stands for: ``BB`` and Martini's side-chain beads
+carbon, SIRAH's ``GN``/``GC``/``GO`` nitrogen, carbon and oxygen — SIRAH names
+a bead for the atom it is centred on, so the second letter is the element —
+water beads oxygen, and an ion bead its own ion. PyMOL would otherwise guess from the name and read Martini water ``W`` as tungsten, the sodium bead ``SOD`` as sulfur, and the glycerol beads ``GL1``/``GL2`` as an element ``G`` that does not exist.
+
+The backbone gets a cartoon, through ``cartoon_trace_atoms``, which is PyMOL's setting for exactly this: it traces the beads themselves rather than looking for a backbone, drawn as a tube. A plain cartoon on the same beads draws nothing at all.
+
+Two things a coarse-grained file still will not give you. Its beads sit ~3.5 Å
+apart, beyond any distance-based bond search, so it arrives with no bonds:
+nothing is bonded, but the side chains and the lipids stay loose, and "make molecules
+whole" has nothing to work with — each of those beads is its own fragment. And
+Martini water is ``resname W``, which neither VMD's ``water`` nor PyMOL's ``solvent`` matches, so
+``--strip`` leaves it in place unless you name it: ``--strip "solvent or inorganic or resn W+WF"``.
 
 Crystal structures
 ------------------

@@ -206,6 +206,24 @@ def main(argv=None):
                 print("pizard: %-16s dropped %d atoms (%s); --strip none keeps them"
                       % (name, n, o.strip))
 
+    # A coarse-grained file names beads, not atoms, and says nothing about
+    # elements, so PyMOL guesses from the name: Martini water "W" becomes
+    # tungsten, the sodium bead "SOD" sulfur, the glycerol beads "GL1"/"GL2"
+    # an element "G" that does not exist.  Give each bead the element it
+    # stands for, so colours and the element category are right.
+    import cg as _cg
+    cg_objs = set()
+    for obj in objs:
+        beads = set()
+        cmd.iterate(obj, "out.add(name)", space={"out": beads})
+        if not _cg.looks_coarse_grained(beads):
+            continue
+        cg_objs.add(obj)
+        n = 0
+        for bead, elem in sorted(_cg.elements(beads).items()):
+            n += cmd.alter("(%s) and name %s" % (obj, bead), "elem=%r" % elem)
+        print("pizard: %-16s coarse-grained: gave %d beads their element" % (obj, n))
+
     gluesel = o.glue or "polymer or (%s)" % o.ligand
     print("pizard: ligand '%s'   glue '%s'   align '%s'"
           % (o.ligand, gluesel, o.align))
@@ -294,7 +312,16 @@ def main(argv=None):
         pocket = "byres ((%s) and polymer within %g of (%s))" % (name, o.pocket, lig)
 
         cmd.hide("everything", name)
-        cmd.show("cartoon", "(%s) and polymer" % name)
+        if name in cg_objs:
+            # One bead per residue is all a coarse-grained model gives, and
+            # cartoon_trace_atoms is what PyMOL has for exactly that: it
+            # traces the beads themselves instead of looking for a backbone.
+            cmd.set("cartoon_trace_atoms", 1)
+            cmd.set("cartoon_tube_radius", 1.0)
+            cmd.cartoon("tube", "(%s) and %s" % (name, _cg.backbone_selection()))
+            cmd.show("cartoon", "(%s) and %s" % (name, _cg.backbone_selection()))
+        else:
+            cmd.show("cartoon", "(%s) and polymer" % name)
         cmd.set("cartoon_color", cartoon_c, name)
         cmd.set("cartoon_transparency", 0.0, name)
         if has_lig:

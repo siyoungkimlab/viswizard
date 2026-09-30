@@ -118,7 +118,7 @@ proc vizard_matchmaker {mob ref args} {
     }
     $s delete
     lassign $stats n0 nk rms
-    puts [format "vizard_matchmaker: %d vs %d CA -> %s aligned, %s kept, rmsd %s A" \
+    puts [format "vizard_matchmaker: %d vs %d backbone -> %s aligned, %s kept, rmsd %s A" \
           $na $nb $n0 $nk $rms]
     # A structural superposition of unrelated proteins still "succeeds"; the
     # give-aways are a low match count and a high rmsd, so say so out loud.

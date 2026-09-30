@@ -51,6 +51,8 @@ not only ones started through ``vizard``.
 Command                                       What it does
 ============================================  ==========================================
 ``ao off``                                    drop shadows + AO, for speed
+``cgelem``                                    give beads their element
+``cgbonds``                                   bond backbone beads in a chain
 ``browse``                                    step through the molecules
 ``view 1 0``                                  frame on rep 1 of molid 0
 ``viewsel "resid 45"``                        frame on any selection
@@ -141,12 +143,20 @@ the fit and the sequence superposition want. A coarse-grained model has no
 ``CA`` at all, and VMD's ``protein`` does not match its beads either, hence the
 ``or name`` half of the default.
 
-Two things such a file will not give you. Its beads sit ~3.5 Å apart, beyond
-any distance-based bond search, so it arrives with almost no bonds — VMD finds
-2 in a 9305-bead system — which leaves nothing for "make molecules whole" to
-work with: each bead is its own fragment. And Martini water is ``resname W``,
-which neither ``water`` matches, so ``--strip`` leaves it in place unless
-you name it: ``--strip "water or ions or resname W WF"``.
+Such a file names beads, not atoms, and says nothing about elements, so each
+bead is given the element it stands for: ``BB`` and Martini's side-chain beads
+carbon, SIRAH's ``GN``/``GC``/``GO`` nitrogen, carbon and oxygen — SIRAH names
+a bead for the atom it is centred on, so the second letter is the element —
+water beads oxygen, and an ion bead its own ion. VMD would otherwise leave every bead as element X, atomic number 0, with a radius taken off the first letter — 1.9 Å for ``SC1``, which is sulfur's. ``cgelem`` does it by hand in a session.
+
+VMD's cartoon styles are no use here: NewCartoon wants a full N/CA/C/O backbone, and Tube, Trace and Ribbons follow atoms named ``CA``, so all of them draw nothing. Instead each backbone bead is bonded to the next one in its chain and drawn as Licorice, which comes out as the same continuous trace; ``cgbonds`` does the bonding by hand.
+
+Two things a coarse-grained file still will not give you. Its beads sit ~3.5 Å
+apart, beyond any distance-based bond search, so it arrives with no bonds:
+the backbone beads are bonded to their neighbours so they can be drawn, but the side chains and the lipids stay loose, and "make molecules
+whole" has nothing to work with — each of those beads is its own fragment. And
+Martini water is ``resname W``, which neither VMD's ``water`` nor PyMOL's ``solvent`` matches, so
+``--strip`` leaves it in place unless you name it: ``--strip "water or ions or resname W WF"``.
 
 Crystal structures
 ------------------
