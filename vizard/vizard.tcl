@@ -38,7 +38,9 @@ Options (all optional; values may contain spaces):
                  held together -- and shown.
   --glue SEL     what is held together across the periodic boundary
                                                   (default "protein or (<ligand>)")
-  --align SEL    what the trajectory is fitted on (default "protein and name CA")
+  --align SEL    what the trajectory is fitted on
+                 (default "(protein and name CA) or name BB GC" -- CA for an
+                 all-atom model, BB for Martini, GC for SIRAH)
   --pocket A     pocket residue distance cutoff, angstroms      (default 6)
   --strip SEL    dropped right after loading, since it is never drawn and it
                  is most of the atoms         (default "water or ions";
@@ -175,7 +177,9 @@ proc vizard_main {} {
     if {[info exists A(ligand)] && $A(ligand) ne ""} { set ligsel $A(ligand) }
     set gluesel "protein or ($ligsel)"
     if {[info exists A(glue)] && $A(glue) ne ""} { set gluesel $A(glue) }
-    set alignsel "protein and name CA"
+    # CA for an all-atom model, BB for Martini, GC for SIRAH: a coarse-grained
+    # model has no CA, and VMD's "protein" does not match its beads either.
+    set alignsel "(protein and name CA) or name BB GC"
     if {[info exists A(align)] && $A(align) ne ""} { set alignsel $A(align) }
     set stripsel "water or ions"
     if {[info exists A(strip)] && $A(strip) ne ""} { set stripsel $A(strip) }

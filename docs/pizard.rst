@@ -114,6 +114,22 @@ either way.
    pizard sys.pdb traj.dcd --strip "solvent or resn POPC"   # membrane too
    pizard sys.pdb traj.dcd --strip none                     # keep it all
 
+Coarse-grained models
+---------------------
+
+The fit selection covers them: ``CA`` for an all-atom model, ``BB`` for
+Martini, ``GC`` for SIRAH — one bead per residue in each case, which is what
+the fit and the sequence superposition want. A coarse-grained model has no
+``CA`` at all, and PyMOL's ``polymer`` does not match its beads either, hence the
+``or name`` half of the default.
+
+Two things such a file will not give you. Its beads sit ~3.5 Å apart, beyond
+any distance-based bond search, so it arrives with almost no bonds — VMD finds
+2 in a 9305-bead system — which leaves nothing for "make molecules whole" to
+work with: each bead is its own fragment. And Martini water is ``resname W``,
+which neither ``solvent`` matches, so ``--strip`` leaves it in place unless
+you name it: ``--strip "solvent or inorganic or resn W+WF"``.
+
 Crystal structures
 ------------------
 

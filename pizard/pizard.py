@@ -46,6 +46,10 @@ from glue import glue_traj
 # PyMOL counts them as organic because they are not standard residues.
 DEFAULT_LIGAND = "organic and not resn ACE+NMA+NME"
 
+# What the trajectory is fitted on: CA for an all-atom model, BB for a Martini
+# one, GC for SIRAH.  A coarse-grained model has no CA at all.
+DEFAULT_FIT = "(polymer and name CA) or name BB+GC"
+
 HELP = """
 pizard -- glue a ligand to its protein across PBC, align, and set up a view,
 in PyMOL.  (vizard is the same thing for VMD.)
@@ -65,7 +69,9 @@ Options (all optional):
                  together -- and shown.
   --glue SEL     held together across the periodic boundary
                                                    (default "polymer or (<ligand>)")
-  --align SEL    what the trajectory is fitted on  (default "polymer and name CA")
+  --align SEL    what the trajectory is fitted on
+                 (default "(polymer and name CA) or name BB+GC" -- CA for an
+                 all-atom model, BB for Martini, GC for SIRAH)
   --pocket A     pocket residue cutoff, angstroms  (default 6)
   --ref FILE|ID  reference structure, a file or a 4-character PDB id (fetched
                  and cached).  The trajectory is put onto it with cealign,
@@ -105,7 +111,8 @@ def main(argv=None):
     p.add_argument("files", nargs="+")
     p.add_argument("--ligand", "--lig", dest="ligand", default=DEFAULT_LIGAND)
     p.add_argument("--glue", dest="glue", default=None)
-    p.add_argument("--align", "--fit", dest="align", default="polymer and name CA")
+    # CA for an all-atom model, BB for Martini, GC for SIRAH
+    p.add_argument("--align", "--fit", dest="align", default=DEFAULT_FIT)
     p.add_argument("--pocket", dest="pocket", type=float, default=6.0,
                    help="pocket residue distance cutoff in A (default 6)")
     p.add_argument("--ref", dest="ref", default=None,

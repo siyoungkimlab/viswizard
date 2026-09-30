@@ -169,7 +169,8 @@ proc ::Glue::glue_traj {args} {
     #   "-join all" if you actually render solvent, "-join none" to skip.
     # -workers: VMD processes to split the frames across.  "auto" uses one
     #   per CPU (up to 8) when there are enough frames; 1 = this VMD only.
-    array set opt {-molid top -glue "protein" -fit "protein and name CA" \
+    array set opt {-molid top -glue "protein" \
+                   -fit "(protein and name CA) or name BB GC" \
                    -wrap 1 -join "" -quiet 0 -workers auto}
     # -align is an alias for -fit
     if {[dict exists $args -align]} {

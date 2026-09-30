@@ -58,7 +58,9 @@ proc vizard_fetch {code args} {
 }
 
 proc vizard_matchmaker {mob ref args} {
-    array set opt {-sel "protein and name CA" -cutoff 2.0 -iterations 5 \
+    # CA all-atom, BB Martini, GC SIRAH -- one bead per residue either way
+    array set opt {-sel "(protein and name CA) or name BB GC" \
+                   -cutoff 2.0 -iterations 5 \
                    -apply all -allframes 0}
     array set opt $args
     if {$mob eq "top"} { set mob [molinfo top] }
@@ -76,7 +78,8 @@ proc vizard_matchmaker {mob ref args} {
     set b [atomselect $ref $opt(-sel)]
     if {[$a num] < 3 || [$b num] < 3} {
         $a delete ; $b delete
-        error "vizard_matchmaker: need at least 3 CA atoms in each ('$opt(-sel)')"
+        error "vizard_matchmaker: need at least 3 backbone atoms in each\
+               ('$opt(-sel)')"
     }
     set dump [file join [vizard_cache] "mm_[pid].txt"]
     set fh [open $dump w]

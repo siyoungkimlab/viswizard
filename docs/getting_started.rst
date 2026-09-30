@@ -104,9 +104,10 @@ Options
      - to hold more than the ligand together — a cofactor, a metal, a
        second chain
    * - ``--align``, ``--fit``
-     - ``protein and name CA``
-     - ``polymer and name CA``
-     - to fit on a domain or a loop instead of the whole protein
+     - ``(protein and name CA) or name BB GC``
+     - ``(polymer and name CA) or name BB+GC``
+     - to fit on a domain or a loop instead of the whole protein. The default
+       covers all-atom (``CA``), Martini (``BB``) and SIRAH (``GC``) models
    * - ``--pocket``
      - ``6``
      - ``6``

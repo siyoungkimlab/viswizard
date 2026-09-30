@@ -278,7 +278,8 @@ def _cell(obj, state):
     return np.array(sym[:3], dtype=float)
 
 
-def glue_traj(glue="polymer", fit="polymer and name CA", obj=None, wrap=1,
+def glue_traj(glue="polymer", fit="(polymer and name CA) or name BB+GC",
+              obj=None, wrap=1,
               quiet=0, align=None, threads=0):
     """threads: numpy threads for the gluing; 0 = one per CPU."""
     if align:                      # -align is an alias for -fit
