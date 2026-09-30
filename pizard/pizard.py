@@ -50,6 +50,9 @@ DEFAULT_LIGAND = "organic and not resn ACE+NMA+NME"
 # one, GC for SIRAH.  A coarse-grained model has no CA at all.
 DEFAULT_FIT = "(polymer and name CA) or name BB+GC"
 
+# Thrown away right after loading: waters and ions, which are never drawn.
+DEFAULT_STRIP = "solvent or inorganic"
+
 HELP = """
 pizard -- glue a ligand to its protein across PBC, align, and set up a view,
 in PyMOL.  (vizard is the same thing for VMD.)
@@ -119,7 +122,7 @@ def main(argv=None):
                    help="reference structure; the trajectory is put onto it "
                         "with cealign after the internal alignment")
     p.add_argument("--object", dest="obj", default="sys")
-    p.add_argument("--strip", dest="strip", default="solvent or inorganic",
+    p.add_argument("--strip", dest="strip", default=DEFAULT_STRIP,
                    help="dropped after loading; 'none' keeps everything")
     p.add_argument("--out", dest="out", default=None,
                    help="render a video instead of opening a session")
@@ -194,18 +197,6 @@ def main(argv=None):
         print("pizard: %-16s %6d atoms, %3d states" %
               (name, cmd.count_atoms(name), cmd.count_states(name)))
 
-    # Waters and ions are never drawn, and they are most of the atoms: dropping
-    # them here makes the gluing, the memory and every later redraw smaller.
-    # It has to happen after load_traj, which needs the atom count to match.
-    if str(o.strip).strip().lower() not in ("none", "0", ""):
-        for name in objs:
-            sel = "(%s) and (%s)" % (name, o.strip)
-            n = cmd.count_atoms(sel)
-            if n and n < cmd.count_atoms(name):
-                cmd.remove(sel)
-                print("pizard: %-16s dropped %d atoms (%s); --strip none keeps them"
-                      % (name, n, o.strip))
-
     # A coarse-grained file names beads, not atoms, and says nothing about
     # elements, so PyMOL guesses from the name: Martini water "W" becomes
     # tungsten, the sodium bead "SOD" sulfur, the glycerol beads "GL1"/"GL2"
@@ -224,6 +215,28 @@ def main(argv=None):
             n += cmd.alter("(%s) and name %s" % (obj, bead), "elem=%r" % elem)
         print("pizard: %-16s coarse-grained: gave %d beads their element" % (obj, n))
 
+    # Waters and ions are never drawn, and they are most of the atoms: dropping
+    # them here makes the gluing, the memory and every later redraw smaller.
+    # It has to happen after load_traj, which needs the atom count to match.
+    if str(o.strip).strip().lower() not in ("none", "0", ""):
+        for name in objs:
+            # PyMOL's polymer/organic/inorganic flags are set when a file is
+            # read and do not follow the element, so every bead of a
+            # coarse-grained model counts as "inorganic" -- the default strip
+            # would throw the whole model away.  Its water is resname W, which
+            # "solvent" does not match either, so there is nothing here for it
+            # to do; --strip "resn W+WF" still works when asked for.
+            if name in cg_objs and o.strip == DEFAULT_STRIP:
+                print("pizard: %-16s coarse-grained: keeping every bead"
+                      " (--strip \"resn W+WF\" drops Martini water)" % name)
+                continue
+            sel = "(%s) and (%s)" % (name, o.strip)
+            n = cmd.count_atoms(sel)
+            if n and n < cmd.count_atoms(name):
+                cmd.remove(sel)
+                print("pizard: %-16s dropped %d atoms (%s); --strip none keeps them"
+                      % (name, n, o.strip))
+
     gluesel = o.glue or "polymer or (%s)" % o.ligand
     print("pizard: ligand '%s'   glue '%s'   align '%s'"
           % (o.ligand, gluesel, o.align))
@@ -239,6 +252,19 @@ def main(argv=None):
         g = gluesel if nl or o.glue else "polymer"
         if not (nl or o.glue):
             print("pizard: %s -- no ligand matched; gluing polymer only" % name)
+        if not o.glue and not cmd.count_atoms("(%s) and (%s)" % (name, g)):
+            # "polymer" matches nothing in a coarse-grained model: PyMOL sets
+            # that flag when the file is read, from names it does not know.
+            # The beads themselves are what is left to glue.
+            beads = set()
+            cmd.iterate(name, "out.add(name)", space={"out": beads})
+            g = _cg.solute_selection(beads) or ""
+            if g:
+                print("pizard: %s -- gluing its beads (%s)" % (name, g))
+        if not g or not cmd.count_atoms("(%s) and (%s)" % (name, g)):
+            print("pizard: %s -- nothing to glue; aligning on the fit selection"
+                  % name)
+            g = o.align
         glue_traj(glue=g, align=o.align, obj=name, quiet=1)
 
     # ---- put everything into one frame of reference ------------------------
@@ -246,6 +272,10 @@ def main(argv=None):
     # object rigidly carries its whole trajectory.  cealign is structure-based,
     # so residue numbering need not match.
     def put_onto(target, mobile, what):
+        # cealign is structure-based, so residue numbering need not match --
+        # but it works from CA atoms, and a coarse-grained model has none:
+        # "CEalign-Error: Your target selection is too short".  align does the
+        # same job from the sequence, on whatever the fit selection matches.
         try:
             r = cmd.cealign(target, mobile)
             msg = "pizard: %s onto %s -- RMSD %.3f over %d atoms" % (
@@ -253,8 +283,20 @@ def main(argv=None):
             if r["RMSD"] > 5.0:
                 msg += "   <- high; same protein?"
             print(msg)
+            return
+        except Exception as ce:
+            first = ce
+        try:
+            r = cmd.align("(%s) and (%s)" % (mobile, o.align),
+                          "(%s) and (%s)" % (target, o.align))
+            msg = "pizard: %s onto %s -- RMSD %.3f over %d atoms (by sequence)" % (
+                mobile, what, r[0], r[1])
+            if r[0] > 5.0:
+                msg += "   <- high; same protein?"
+            print(msg)
         except Exception as e:
-            print("pizard: could not align %s onto %s (%s)" % (mobile, what, e))
+            print("pizard: could not align %s onto %s (%s; %s)"
+                  % (mobile, what, first, e))
 
     if o.ref:
         load_one(o.ref, "ref")

@@ -106,6 +106,7 @@ proc vizard_cg_bonds {{molid top} {quiet 0} {cutoff 6.0}} {
     set sg [$bb get segname]
     set crd [$bb get {x y z}]
     set added 0
+    set already 0
     set c2 [expr {$cutoff * $cutoff}]
     for {set i 0} {$i < [llength $idx] - 1} {incr i} {
         set j [expr {$i + 1}]
@@ -122,7 +123,9 @@ proc vizard_cg_bonds {{molid top} {quiet 0} {cutoff 6.0}} {
         if {$dx*$dx + $dy*$dy + $dz*$dz > $c2} continue
         set a [lindex $idx $i]
         set b [lindex $idx $j]
-        if {[lsearch -exact [lindex $bonds $a] $b] >= 0} continue
+        # a .mae or .dms carries the model's own bonds, so there is often
+        # nothing to add -- say so rather than reporting a bare zero
+        if {[lsearch -exact [lindex $bonds $a] $b] >= 0} { incr already ; continue }
         lset bonds $a [concat [lindex $bonds $a] $b]
         lset bonds $b [concat [lindex $bonds $b] $a]
         incr added
@@ -130,8 +133,13 @@ proc vizard_cg_bonds {{molid top} {quiet 0} {cutoff 6.0}} {
     $all setbonds $bonds
     $all delete ; $bb delete
     if {!$quiet} {
-        puts "cgbonds: molid $molid -- bonded $added of $nbb backbone beads to\
-              the next (within $cutoff A)"
+        if {$added == 0 && $already > 0} {
+            puts "cgbonds: molid $molid -- the file already bonds its $nbb\
+                  backbone beads; nothing to add"
+        } else {
+            puts "cgbonds: molid $molid -- bonded $added of $nbb backbone beads\
+                  to the next (within $cutoff A)"
+        }
     }
     return $added
 }

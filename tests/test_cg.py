@@ -69,3 +69,22 @@ def test_tcl_and_python_tables_agree():
     prefix = _tcl_table("PREFIX")
     assert tuple(zip(prefix[::2], prefix[1::2])) == cg.PREFIX
     assert _tcl_table("MARKERS") == list(cg.MARKERS)
+
+
+def test_water_and_ion_beads_are_told_apart():
+    assert cg.is_water("W") and cg.is_water("WF") and cg.is_water("WT4")
+    assert not cg.is_water("BB")
+    assert cg.is_ion("SOD") and cg.is_ion("CLA") and cg.is_ion("NA")
+    assert not cg.is_ion("SC1")
+
+
+def test_solute_beads_leave_out_water_and_ions():
+    names = ["BB", "SC1", "SC2", "W", "SOD", "CLA", "QQQ"]
+    assert cg.solute_beads(names) == ["BB", "SC1", "SC2"]
+    assert cg.solute_selection(names) == "name BB+SC1+SC2"
+    assert cg.solute_selection(names, pymol=False) == "name BB SC1 SC2"
+
+
+def test_solute_selection_of_nothing_is_empty():
+    assert cg.solute_selection(["W", "SOD"]) == ""
+    assert cg.solute_selection([]) == ""

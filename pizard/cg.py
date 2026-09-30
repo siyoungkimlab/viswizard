@@ -53,6 +53,36 @@ MARKERS = ("BB", "GC", "GN", "SC1")
 BACKBONE = ("BB", "GC")
 
 
+def is_water(name):
+    """A water bead: Martini's W and WF, SIRAH's WT4."""
+    return str(name).strip().upper().startswith("W")
+
+
+def is_ion(name):
+    """An ion bead, which is one ion."""
+    return str(name).strip().upper() in IONS
+
+
+def solute_beads(names):
+    """The bead names worth gluing and drawing: not water, not ions.
+
+    PyMOL's polymer/organic/inorganic flags are set when a file is read and do
+    not follow the element, so a coarse-grained model is "inorganic" whatever
+    its beads are -- "polymer" matches none of it.  The beads themselves are
+    what is left to name.
+    """
+    return sorted(n for n in set(names)
+                  if element(n) and not is_water(n) and not is_ion(n))
+
+
+def solute_selection(names, pymol=True):
+    """A selection for those beads, or "" when there are none."""
+    beads = solute_beads(names)
+    if not beads:
+        return ""
+    return "name " + ("+" if pymol else " ").join(beads)
+
+
 def backbone_selection(pymol=True):
     """"name BB+GC" for PyMOL, "name BB GC" for VMD."""
     return "name " + ("+" if pymol else " ").join(BACKBONE)
