@@ -215,6 +215,7 @@ def main(argv=None):
     import cg as _cg
     cg_objs = set()
     cg_solute = {}
+    cg_prot = {}
     for obj in objs:
         beads = set()
         # text_type holds the bead's own name when the model came in through
@@ -225,6 +226,25 @@ def main(argv=None):
             continue
         cg_objs.add(obj)
         cg_solute[obj] = _cg.solute_selection(beads, rename=True)
+        # SIRAH names its residues for itself -- sL, sHe -- and PyMOL will not
+        # call a residue it does not know a polymer, so "polymer" matched none
+        # of a SIRAH protein and the GUI's align, which builds "polymer and
+        # name CA", had nothing to work with.  sL is a leucine, so write LEU and
+        # re-sort, which is what makes PyMOL classify the model; the residue's
+        # own name is kept in custom.  A model the reader already translated
+        # comes through this untouched, and so does every Martini one.
+        # The case has to be kept while deciding: PyMOL ignores it in resn, so
+        # "resn sS" would take the dipeptide probe SS for a serine -- here the
+        # test runs in Python, over the atoms.
+        cmd.alter(obj, "custom = resn if STD(resn) else custom;"
+                       " resn = STD(resn) or resn",
+                  space={"STD": _cg.standard_residue})
+        cmd.sort(obj)
+        # With that, the protein is what PyMOL calls polymer, as for a Martini
+        # model.  Failing even that -- a lipid-only box -- the beads themselves
+        # are all there is, probes and all.
+        cg_prot[obj] = ("polymer" if cmd.count_atoms("(%s) and polymer" % obj)
+                        else cg_solute[obj])
         # The DMS and MAE readers do this while reading the file, which is the
         # only moment align and super can be rescued -- see cg.pymol_atom --
         # and they leave the bead's own name in text_type to say they did.
@@ -233,7 +253,7 @@ def main(argv=None):
             print("pizard: %-16s coarse-grained: %d beads, %d read as a"
                   " protein (%d backbone)"
                   % (obj, cmd.count_atoms(obj),
-                     cmd.count_atoms("(%s) and polymer" % obj),
+                     cmd.count_atoms("(%s) and (%s)" % (obj, cg_prot[obj])),
                      cmd.count_atoms("(%s) and name %s" % (obj, _cg.CA))))
             continue
         # A file PyMOL read itself, a Martini PDB or GRO, is still worth
@@ -245,8 +265,8 @@ def main(argv=None):
         n = 0
         for bead, elem in sorted(_cg.elements(beads).items()):
             n += cmd.alter("(%s) and name %s" % (obj, bead), "elem=%r" % elem)
-        nb = cmd.alter("(%s) and %s" % (obj, _cg.backbone_selection()),
-                       "name=%r" % _cg.CA)
+        nb = cmd.alter("(%s) and %s and polymer"
+                       % (obj, _cg.backbone_selection()), "name=%r" % _cg.CA)
         cmd.sort(obj)
         print("pizard: %-16s coarse-grained: gave %d beads their element,"
               " renamed %d backbone beads %s" % (obj, n, nb, _cg.CA))
@@ -319,12 +339,10 @@ def main(argv=None):
         if o.glue:
             g = gluesel
         elif name in cg_objs:
-            # the reader marks the beads of an amino acid as polymer, so a
-            # coarse-grained protein can be named the same way as any other.
-            # Failing that -- a model PyMOL read itself -- the beads are all
-            # there is to name, and that includes any probe's beads.
-            solute = cg_solute.get(name, "")
-            g = "polymer" if cmd.count_atoms("(%s) and polymer" % name) else solute
+            # the protein's own beads -- by the polymer flag where PyMOL set
+            # it, by residue name where it would not, and only as a last
+            # resort every bead, which drags a box of probes in with it
+            g = cg_prot.get(name, "") or cg_solute.get(name, "")
             if g and nl and not cosolvent:
                 g = "(%s) or (%s)" % (g, o.ligand)
             if g:
@@ -444,7 +462,7 @@ def main(argv=None):
         has_lig = cmd.count_atoms(lig) > 0
         # polymer is empty for a coarse-grained model, so measure the pocket
         # from its beads instead -- otherwise there is no pocket at all
-        around = cg_solute.get(name) or "polymer"
+        around = cg_prot.get(name) or cg_solute.get(name) or "polymer"
         pocket = "byres ((%s) and (%s) within %g of (%s))" % (
             name, around, o.pocket, lig)
 

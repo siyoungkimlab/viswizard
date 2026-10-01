@@ -330,6 +330,9 @@ def load_mae(filename, object="", state=0, quiet=1, multiplex=-1, zoom=-1,
                 if fix:
                     at.name, at.symbol, at.hetatm = fix
                     at.text_type = a["name"]   # the bead's own name, kept
+                    std = cg.standard_residue(a["resn"])
+                    if std:
+                        at.custom, at.resn = a["resn"], std
             model.atom.append(at)
         for i, j, o in ct["bonds"]:
             bd = Bond()

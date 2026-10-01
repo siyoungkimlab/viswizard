@@ -151,8 +151,13 @@ water beads oxygen, and an ion bead its own ion. VMD would otherwise leave every
 
 VMD's cartoon styles are no use here: NewCartoon wants a full N/CA/C/O backbone, and Tube, Trace and Ribbons follow atoms named ``CA``, so all of them draw nothing. Instead each backbone bead is bonded to the next one in its chain and drawn as Licorice, which comes out as the same continuous trace; ``cgbonds`` does the bonding by hand.
 
-Both the trace and that bonding are restricted to the protein's own beads,
-named by residue. A pocket search fills the box with dipeptide probes carrying
+The fit, the trace, the bead bonding, ``vizard_matchmaker`` and the ligand
+``vizard_reps`` falls back on are all restricted to the protein's own beads,
+named by residue — ``ALA``, ``LEU`` and the rest for Martini, ``sA``, ``sL``,
+``sHe`` for SIRAH, which names its residues its own way. VMD matches a
+``resname`` with its case, which is what keeps them apart from the dipeptide
+probes of a pocket search: upper-cased, ``sS``, ``sT``, ``sW`` and ``sY`` are
+the probes ``SS``, ``ST``, ``SW`` and ``SY``. A pocket search fills the box with dipeptide probes carrying
 one ``BB`` bead each, and 420 of those drawn as licorice bury the trace the rep
 is for — while bonding ``name BB GC`` wholesale walks the list in file order
 and joins beads of different probes that happen to be close, bonds that then
@@ -215,6 +220,17 @@ A molecule that happens to sit half a box away still flips between frames —
 every wrap has that boundary somewhere, and with free solvent diffusing ~18 Å
 between saved frames a fifth of it is near one. What is gone is the whole
 cloud moving at once.
+
+Reading DMS and CMS
+-------------------
+
+VMD has no DMS plugin, so ``vizard`` converts one to MAE on the way in and
+caches the result under ``~/.viswizard_cache``. The cache is keyed on the
+file's whole path, not its name: a pocket search holds a
+``martini3/…/solvated.dms`` and a ``sirah/…/solvated.dms``, and one entry for
+both served whichever had been converted last — silently, since the staleness
+check only compares times and the older file looks up to date against an entry
+written for its namesake.
 
 Crystal structures
 ------------------

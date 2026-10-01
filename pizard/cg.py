@@ -21,6 +21,7 @@ Nothing here imports pymol, so it can be tested on its own.
 IONS = {
     "NA": "Na", "SOD": "Na", "CL": "Cl", "CLA": "Cl", "K": "K", "POT": "K",
     "CA": "Ca", "CAL": "Ca", "MG": "Mg", "ZN": "Zn", "CES": "Cs", "CS": "Cs",
+    "NAW": "Na", "CLW": "Cl",      # SIRAH's ions, each with its hydration shell
 }
 
 # Martini beads whose name says nothing about the element.
@@ -71,14 +72,71 @@ RESIDUES = set(
     "ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE PRO SER THR TRP "
     "TYR VAL HID HIE HIP HISD HISE HISH CYX CYM ACE NME NMA".split())
 
+# SIRAH names its residues for itself -- sL, sK, sHe -- so a SIRAH protein
+# matches nothing above and arrives as no protein at all: no backbone to look
+# at.  These are matched with their own case, not upper-cased like the rest,
+# because upper-casing them would read sS, sT, sW and sY as the dipeptide
+# probes SS, ST, SW and SY, and a box of probes would come out as protein.
+SIRAH_RESIDUES = set(
+    "sA sC sCp sD sDh sE sEh sF sG sHd sHe sI sK sKa sKm sL sM sN sP sQ sR sS "
+    "sSp sT sTp sV sW sX sY sYp sZ".split())
+
 
 # The residue names coarse-grained solvent and ions come under.  Neither VMD's
 # "water" nor PyMOL's "solvent" matches a Martini water bead -- the residue is
 # called W -- so without this list a 7266-bead box strips 8 atoms and keeps
 # 5665 waters.  SIRAH's water is WT4 and its ions NaW/ClW; an ion bead often
 # arrives under a residue called ION, or under its own name.
+# VMD matches a resname with its case, so SIRAH's NaW and ClW are listed as
+# SIRAH writes them as well as upper-cased; PyMOL ignores case either way.
 SOLVENT = ("W", "WF", "WN", "WT4", "ION", "NA", "CL", "SOD", "CLA", "POT",
-           "CAL", "MG", "ZN", "NAW", "CLW")
+           "CAL", "MG", "ZN", "NAW", "CLW", "NaW", "ClW")
+
+
+# One-letter code to the three-letter name PyMOL knows.  SIRAH writes a
+# residue as "s" and its one-letter code, sometimes with a letter for the
+# protonation state after it -- sL, sKa, sSp -- so the code is the second
+# character and the three-letter name follows from it.
+ONE_LETTER = dict(zip(
+    "ACDEFGHIKLMNPQRSTVWY",
+    "ALA CYS ASP GLU PHE GLY HIS ILE LYS LEU MET ASN PRO GLN ARG SER THR VAL "
+    "TRP TYR".split()))
+
+# The histidine tautomers, which have three-letter names of their own.
+SIRAH_EXACT = {"sHd": "HID", "sHe": "HIE"}
+
+
+def standard_residue(resname):
+    """The three-letter name for a SIRAH residue, or None if it is not one.
+
+    PyMOL works out what a residue is from names it knows, and it does not know
+    sL: it will not call that a polymer whatever else it is told, so "polymer"
+    matches none of a SIRAH protein, the GUI's align builds "polymer and name
+    CA" and gets nothing, and align and super fail on an empty selection.  Since
+    sL *is* a leucine, writing it as LEU on the way in is what makes PyMOL treat
+    the model as the protein it is -- the same move as calling its backbone bead
+    CA, one level up.  VMD needs none of this and keeps SIRAH's own names.
+    """
+    held = str(resname).strip()
+    if held in SIRAH_EXACT:
+        return SIRAH_EXACT[held]
+    if (len(held) >= 2 and held[0] == "s" and held[1] in ONE_LETTER
+            and held in SIRAH_RESIDUES):
+        return ONE_LETTER[held[1]]
+    return None
+
+
+def is_protein_residue(resname):
+    """Is this residue the protein's own?  Case-exact, and it has to be.
+
+    PyMOL will not call a residue it does not know a polymer, whatever else it
+    is told: marking a bead as non-hetatm is enough for a Martini model, whose
+    residues are ALA, LEU and the rest, and does nothing for a SIRAH one, whose
+    residues are sA, sL, sHe.  So "polymer" matches none of a SIRAH protein,
+    and the residue name is what is left to go on.
+    """
+    held = str(resname).strip()
+    return held.upper() in RESIDUES or held in SIRAH_RESIDUES
 
 
 def solvent_selection(pymol=True):
@@ -102,7 +160,7 @@ def pymol_atom(name, resname=""):
     elem = element(name)
     if not elem:
         return None
-    protein = str(resname).strip().upper() in RESIDUES
+    protein = is_protein_residue(resname)
     n = str(name).strip().upper()
     return (CA if protein and n in BACKBONE else name, elem, 0 if protein else 1)
 

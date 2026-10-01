@@ -70,6 +70,7 @@ def test_tcl_and_python_tables_agree():
     assert tuple(zip(prefix[::2], prefix[1::2])) == cg.PREFIX
     assert _tcl_table("MARKERS") == list(cg.MARKERS)
     assert sorted(_tcl_table("RESIDUES")) == sorted(cg.RESIDUES)
+    assert sorted(_tcl_table("SIRAH_RESIDUES")) == sorted(cg.SIRAH_RESIDUES)
     assert _tcl_table("SOLVENT") == list(cg.SOLVENT)
 
 
@@ -142,3 +143,76 @@ def test_coarse_grained_water_and_ions_can_be_named_for_stripping():
         assert name in cg.SOLVENT
     # and nothing that is part of a protein
     assert not set(cg.SOLVENT) & set(cg.RESIDUES)
+
+
+def test_a_sirah_residue_is_protein_and_a_probe_is_not():
+    """SIRAH names its residues for itself, so without its own list a SIRAH
+    protein arrives as no protein at all: the backbone bead keeps its name, the
+    model is hetatm, and there is nothing to draw a cartoon from.
+
+    Their case is what tells them from the dipeptide probes a swim fills the box
+    with: upper-cased, sS, sT, sW and sY are the probes SS, ST, SW and SY.
+    """
+    for residue in ("sL", "sK", "sHe", "sS", "sT", "sW", "sY"):
+        name, elem, het = cg.pymol_atom("GC", residue)
+        assert (name, elem, het) == (cg.CA, "C", 0)
+        assert cg.pymol_atom("GN", residue)[2] == 0  # the whole residue is protein
+
+    for probe in ("SS", "ST", "SW", "SY", "EK", "RR"):
+        name, elem, het = cg.pymol_atom("GC", probe)
+        assert (name, elem, het) == ("GC", "C", 1)  # its own name, and not polymer
+
+    assert not {r.upper() for r in cg.SIRAH_RESIDUES} & set(cg.SOLVENT)
+    assert not set(cg.SIRAH_RESIDUES) & cg.RESIDUES
+
+
+def test_a_sirah_residue_is_told_from_a_probe_by_its_case():
+    # the reason this is a Python test and not a selection: PyMOL ignores case
+    # in resn, so "resn sS" matches the dipeptide probe SS as well, and a box of
+    # probes would come out as protein.  VMD's resname keeps its case.
+    assert cg.is_protein_residue("sS") and not cg.is_protein_residue("SS")
+    assert cg.is_protein_residue("sT") and not cg.is_protein_residue("ST")
+    assert cg.is_protein_residue("sW") and not cg.is_protein_residue("SW")
+    assert cg.is_protein_residue("sY") and not cg.is_protein_residue("SY")
+    # a standard residue is matched whatever its case; a probe never is
+    assert cg.is_protein_residue("ALA") and cg.is_protein_residue("ala")
+    for probe in ("WW", "FY", "RQ", "EE"):
+        assert not cg.is_protein_residue(probe)
+        assert cg.pymol_atom("GC", probe) == ("GC", "C", 1)
+
+
+def test_sirah_water_and_ions_are_named_as_sirah_writes_them():
+    # VMD matches a resname with its case, so the upper-cased spelling alone
+    # left SIRAH's 175 ion beads in place
+    for name in ("NaW", "ClW", "NAW", "CLW", "WT4"):
+        assert name in cg.SOLVENT
+    assert cg.element("NaW") == "Na" and cg.element("ClW") == "Cl"
+    assert cg.is_ion("NaW") and cg.is_ion("ClW")
+
+
+def test_a_sirah_residue_is_written_as_the_name_pymol_knows():
+    # PyMOL will not call a residue it does not know a polymer, so "polymer"
+    # matched none of a SIRAH protein and the GUI's align -- which builds
+    # "polymer and name CA" -- had nothing to work with
+    assert cg.standard_residue("sL") == "LEU"
+    assert cg.standard_residue("sK") == "LYS"
+    assert cg.standard_residue("sV") == "VAL"
+    # the histidine tautomers keep theirs; the protonation letter is dropped
+    assert cg.standard_residue("sHe") == "HIE"
+    assert cg.standard_residue("sHd") == "HID"
+    assert cg.standard_residue("sKa") == cg.standard_residue("sKm") == "LYS"
+    assert cg.standard_residue("sSp") == "SER"
+    # and every one of them is a name PyMOL counts as protein
+    for sirah in cg.SIRAH_RESIDUES:
+        std = cg.standard_residue(sirah)
+        assert std is None or std in cg.RESIDUES
+
+
+def test_nothing_else_is_translated():
+    # a probe is not a residue, whatever upper-casing would make of it
+    for probe in ("SS", "ST", "SW", "SY", "WW", "FY"):
+        assert cg.standard_residue(probe) is None
+    # an all-atom residue is already the name PyMOL knows
+    for standard in ("ALA", "LEU", "HIS"):
+        assert cg.standard_residue(standard) is None
+    assert cg.standard_residue("") is None

@@ -45,7 +45,15 @@ for f in "\${files[@]}"; do
     *.dms|*.DMS|*.cms|*.CMS)
       [ -f "\$f" ] || { echo "vizard: no such file: \$f" >&2; exit 1; }
       cache="\$HOME/.viswizard_cache"; mkdir -p "\$cache"
-      base="\$(basename "\$f")"; out="\$cache/\${base%.*}.mae"
+      # keyed on the whole path, not the basename: a pocket search holds a
+      # martini3/.../solvated.dms and a sirah/.../solvated.dms, and one cache
+      # entry for both served whichever was converted last -- silently, since
+      # the staleness check only compares times, and the older file looks
+      # up to date against a cache entry written for its namesake
+      base="\$(basename "\$f")"
+      key="\$(cd "\$(dirname "\$f")" && pwd)/\$base"
+      tag="\$(printf %s "\$key" | cksum | cut -d" " -f1)"
+      out="\$cache/\${base%.*}-\$tag.mae"
       if [ ! -f "\$out" ] || [ "\$f" -nt "\$out" ]; then
         PY=""; for c in python3 python; do command -v "\$c" >/dev/null 2>&1 && { PY="\$c"; break; }; done
         [ -n "\$PY" ] || { echo "vizard: need python3 to read \$f" >&2; exit 1; }

@@ -320,6 +320,9 @@ def load_dms(filename, object="", state=0, quiet=1, zoom=-1, _self=None):
             if fix:
                 at.name, at.symbol, at.hetatm = fix
                 at.text_type = a["name"]      # the bead's own name, kept
+                std = cg.standard_residue(a["resname"])
+                if std:
+                    at.custom, at.resn = a["resname"], std
         model.atom.append(at)
     for i, j, o in d["bonds"]:
         bd = Bond(); bd.index = [i, j]; bd.order = o

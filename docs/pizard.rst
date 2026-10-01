@@ -176,6 +176,39 @@ beside the element tables in ``pizard/cg.py`` and ``vizard/cg.tcl``. Everything
 else in the model is kept: the probes and the lipids are not solvent, and
 ``inorganic`` would have taken them too.
 
+SIRAH residue names
+-------------------
+
+PyMOL decides what is polymer from residue names it knows. A Martini residue is
+``ALA`` or ``LEU``, so marking its beads as non-hetatm is enough and ``polymer``
+selects the peptide. SIRAH writes its residues its own way — ``sA``, ``sL``,
+``sHe`` — and PyMOL will not call those a polymer whatever else it is told. So
+``polymer`` matched none of a SIRAH protein, ``organic`` (carbon and not
+polymer) matched all of it, and that one gap showed up everywhere: the protein
+came back as its own ligand, every bead was glued so the probes of a pocket
+search moved with the protein instead of being wrapped around it, and
+**action → align → to molecule** built ``polymer and name CA and (sys)``, got
+nothing, and failed with *invalid selections for alignment*.
+
+``sL`` is a leucine, so pizard writes ``LEU`` as the file is read and keeps
+SIRAH's own name in the atom's ``custom`` field — ``iterate`` still shows it and
+``custom sL`` still selects it. It is the same move as calling the backbone bead
+``CA``, one level up, and with it PyMOL treats the model as the protein it is:
+``polymer`` selects it, the sequence is real, and align, super, cealign and the
+GUI's align menu all work, including against a structure you fetched.
+
+Deciding has to keep the case, which is why it is done over the atoms in Python
+rather than with a selection: PyMOL ignores case in ``resn``, so ``resn sS``
+matches the dipeptide probe ``SS`` as well as a SIRAH serine, and a box of
+probes would come out as protein — the one thing the residue list is there to
+tell apart. VMD keeps the case of a ``resname`` and needs no translation at all,
+so ``vizard`` leaves SIRAH's names alone and selects them with
+``::CG::protein``.
+
+The sequence superposition knows them too: a SIRAH residue has a one-letter code
+like any other, so ``vizard_matchmaker`` aligns real sequences rather than a run
+of unknowns.
+
 Periodic boundaries
 -------------------
 
