@@ -104,7 +104,8 @@ proc ::Glue::tree_join {sel edges a b c} {
 
 # Steps 1-3 on one frame.  The selections must already be on that frame, and
 # so must the MOLECULE: pbc wrap acts on its current frame, not the selections'.
-proc ::Glue::pbc_steps {molid a b c jsel edges csel msel wrap centersel wrapsel} {
+proc ::Glue::pbc_steps {molid a b c jsel edges csel msel wrap others \
+                        centersel wrapsel anchor all} {
     # 1. fix bonds: make each fragment whole
     if {$jsel ne ""} { tree_join $jsel $edges $a $b $c }
 
@@ -120,10 +121,25 @@ proc ::Glue::pbc_steps {molid a b c jsel edges csel msel wrap centersel wrapsel}
         }
     }
 
-    # 3. wrap everything else -- never the glued set, or step 2 is undone
+    # 3. wrap every other molecule onto the image nearest the protein of
+    #    interest -- never the glued set, or step 2 is undone.  The centre is
+    #    the whole molecules the fit sits on, not the fit atoms (a --align of
+    #    one loop would otherwise pull the centre into a corner of the protein)
+    #    and not the glued set's own centre (a few hundred co-solvent molecules
+    #    would outvote the protein in it).
     if {$wrap} {
-        pbc wrap -molid $molid -now -center com -centersel $centersel \
-                 -compound fragment -sel $wrapsel
+        if {$others} {
+            pbc wrap -molid $molid -now -center com -centersel $centersel \
+                     -compound fragment -sel $wrapsel
+        }
+
+        # 4. put the protein in the middle of the box.  Everything else is now
+        #    within half a box of it, so this is what leaves the whole system
+        #    inside the cell, and the fit that follows carries every frame onto
+        #    this same frame of reference.
+        lassign [measure center $anchor] cx cy cz
+        $all moveby [list [expr {$a/2.0 - $cx}] [expr {$b/2.0 - $cy}] \
+                          [expr {$c/2.0 - $cz}]]
     }
 }
 
@@ -169,7 +185,8 @@ proc ::Glue::glue_traj {args} {
     #   "-join all" if you actually render solvent, "-join none" to skip.
     # -workers: VMD processes to split the frames across.  "auto" uses one
     #   per CPU (up to 8) when there are enough frames; 1 = this VMD only.
-    array set opt {-molid top -glue "protein" -fit "protein and name CA" \
+    array set opt {-molid top -glue "protein" \
+                   -fit "(protein and name CA) or name BB GC" \
                    -wrap 1 -join "" -quiet 0 -workers auto}
     # -align is an alias for -fit
     if {[dict exists $args -align]} {
@@ -225,15 +242,23 @@ proc ::Glue::glue_traj {args} {
         set jsel [atomselect $molid $joinsel]
         set edges [tree_prepare $molid $joinsel]
     }
-    set wrap [expr {$opt(-wrap) && [$rest num] > 0}]
+    set wrap $opt(-wrap)
+    set others [expr {[$rest num] > 0}]
     set wrapsel "not same fragment as ($opt(-glue))"
+    # the protein of interest: the whole molecules the fit selection sits on
+    set anchorsel "same fragment as ($opt(-fit))"
+    if {[catch {atomselect $molid $anchorsel} anchor] || [$anchor num] == 0} {
+        catch { $anchor delete }
+        set anchorsel $opt(-glue)
+        set anchor [atomselect $molid $anchorsel]
+    }
 
     set nopbc_warned 0
     set ref [atomselect $molid $opt(-fit) frame 0]   ;# fit reference
 
     for {set n 0} {$n < $nf} {incr n} {
         molinfo $molid set frame $n
-        foreach s [concat $csel $msel [list $gsel $all $fit $rest] $jsel] { $s frame $n }
+        foreach s [concat $csel $msel [list $gsel $all $fit $rest $anchor] $jsel] { $s frame $n }
         lassign [molinfo $molid get {a b c}] a b c
 
         # A file with no periodic cell is not reported as zero: VMD hands back
@@ -253,14 +278,14 @@ proc ::Glue::glue_traj {args} {
             }
         } else {
             pbc_steps $molid $a $b $c $jsel $edges $csel $msel \
-                      $wrap $opt(-glue) $wrapsel
+                      $wrap $others $anchorsel $wrapsel $anchor $all
         }
 
         # 4. fit on CA, last
         $all move [measure fit $fit $ref]
     }
     $ref delete
-    foreach s [concat $csel $msel [list $gsel $all $fit $rest] $jsel] { $s delete }
+    foreach s [concat $csel $msel [list $gsel $all $fit $rest $anchor] $jsel] { $s delete }
     if {!$opt(-quiet)} {
         set dt [expr {([clock milliseconds]-$t0)/1000.0}]
         puts [format "glue: processed %d frames in %.2f s (%.0f ms/frame)" \
@@ -353,15 +378,27 @@ proc ::Glue::parallel_run {molid optlist joinsel nw topfile toptype dir} {
         set edges [tree_prepare $molid $joinsel]
     }
     set s [atomselect $molid "not same fragment as ($opt(-glue))"]
-    set wrap [expr {$opt(-wrap) && [$s num] > 0}]
+    set others [expr {[$s num] > 0}]
+    set wrap $opt(-wrap)
     $s delete
-    set s [atomselect $molid all]; set frag [$s get fragment]; $s delete
+    # the protein of interest, as indices: the whole molecules the fit sits on
+    set s [atomselect $molid "same fragment as ($opt(-fit))"]
+    set aidx [$s list]
+    $s delete
+    if {![llength $aidx]} { set aidx $gidx }
+    set s [atomselect $molid all]
+    set frag [$s get fragment]
+    # The worker reloads the structure file, and a PDB carries no bonds, so VMD
+    # guesses them -- which for a coarse-grained model means none at all, and
+    # fragments that do not match this VMD's.  Send the bonds along.
+    set bonds [$s getbonds]
+    $s delete
 
     animate write dcd [file join $dir frames.dcd] waitfor all $molid
     set fh [open [file join $dir job.tcl] w]
     puts $fh [list set ::Glue::job [dict create topfile $topfile toptype $toptype \
-        gidx $gidx cidxs $cidxs midxs $midxs jidx $jidx edges $edges \
-        frag $frag wrap $wrap]]
+        gidx $gidx aidx $aidx cidxs $cidxs midxs $midxs jidx $jidx edges $edges \
+        frag $frag bonds $bonds wrap $wrap others $others]]
     close $fh
 
     # consecutive ranges; chunk k holds frames first..last
@@ -432,6 +469,10 @@ proc ::Glue::worker_run {dir k first last} {
     mol addfile [file join $dir frames.dcd] type dcd first $first last $last \
                 waitfor all $m
     set all [atomselect $m all]
+    # the file's own bonds, as the main VMD has them -- see parallel
+    if {[info exists bonds] && [llength $bonds] == [$all num]} {
+        if {![catch {$all setbonds $bonds}]} { mol reanalyze $m }
+    }
     if {[$all get fragment] ne $frag} {
         error "fragments differ from the main VMD's"
     }
@@ -441,15 +482,17 @@ proc ::Glue::worker_run {dir k first last} {
         lappend msel [atomselect $m "index $mm"]
     }
     set jsel [expr {[llength $jidx] ? [atomselect $m "index $jidx"] : ""}]
-    set centersel "index $gidx"
+    set centersel "index $aidx"
     set wrapsel "not same fragment as (index $gidx)"
+    set anchor [atomselect $m $centersel]
     set nf [molinfo $m get numframes]
     for {set n 0} {$n < $nf} {incr n} {
         molinfo $m set frame $n
-        foreach s [concat $csel $msel [list $all] $jsel] { $s frame $n }
+        foreach s [concat $csel $msel [list $all $anchor] $jsel] { $s frame $n }
         lassign [molinfo $m get {a b c}] a b c
         if {$a > 2.0 && $b > 2.0 && $c > 2.0} {
-            pbc_steps $m $a $b $c $jsel $edges $csel $msel $wrap $centersel $wrapsel
+            pbc_steps $m $a $b $c $jsel $edges $csel $msel $wrap $others \
+                      $centersel $wrapsel $anchor $all
         }
     }
     animate write dcd [file join $dir chunk_$k.dcd] waitfor all $m

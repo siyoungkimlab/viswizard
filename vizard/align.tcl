@@ -58,7 +58,9 @@ proc vizard_fetch {code args} {
 }
 
 proc vizard_matchmaker {mob ref args} {
-    array set opt {-sel "protein and name CA" -cutoff 2.0 -iterations 5 \
+    # CA all-atom, BB Martini, GC SIRAH -- one bead per residue either way
+    array set opt {-sel "(protein and name CA) or name BB GC" \
+                   -cutoff 2.0 -iterations 5 \
                    -apply all -allframes 0}
     array set opt $args
     if {$mob eq "top"} { set mob [molinfo top] }
@@ -76,7 +78,8 @@ proc vizard_matchmaker {mob ref args} {
     set b [atomselect $ref $opt(-sel)]
     if {[$a num] < 3 || [$b num] < 3} {
         $a delete ; $b delete
-        error "vizard_matchmaker: need at least 3 CA atoms in each ('$opt(-sel)')"
+        error "vizard_matchmaker: need at least 3 backbone atoms in each\
+               ('$opt(-sel)')"
     }
     set dump [file join [vizard_cache] "mm_[pid].txt"]
     set fh [open $dump w]
@@ -115,7 +118,7 @@ proc vizard_matchmaker {mob ref args} {
     }
     $s delete
     lassign $stats n0 nk rms
-    puts [format "vizard_matchmaker: %d vs %d CA -> %s aligned, %s kept, rmsd %s A" \
+    puts [format "vizard_matchmaker: %d vs %d backbone -> %s aligned, %s kept, rmsd %s A" \
           $na $nb $n0 $nk $rms]
     # A structural superposition of unrelated proteins still "succeeds"; the
     # give-aways are a low match count and a high rmsd, so say so out loud.
@@ -206,6 +209,18 @@ proc vizard_reps {molid args} {
     if {$opt(-color) >= 0} { set lc $opt(-color) }
     if {$opt(-proteincolor) >= 0} { set pc $opt(-proteincolor) }
 
+    # A coarse-grained model has no "protein" as far as VMD is concerned, and
+    # no backbone for a cartoon to follow, so its backbone beads stand in and
+    # are drawn as Licorice -- see cg.tcl.
+    set cg [expr {[info commands ::CG::coarse_grained] ne ""
+                  && [::CG::coarse_grained $molid]}]
+    set psel "protein"
+    if {$cg} {
+        # the protein's own beads: a box of dipeptide probes carries a BB bead
+        # per probe, and those would bury the trace
+        set psel "name BB GC and ([::CG::protein])"
+    }
+
     set lig $opt(-ligand)
     if {$lig eq ""} { set lig "not (protein or nucleic or water or ions)" }
     set ls [atomselect $molid $lig]
@@ -231,8 +246,12 @@ proc vizard_reps {molid args} {
 
     while {[molinfo $molid get numreps] > 0} { mol delrep 0 $molid }
 
-    mol representation NewCartoon 0.30 20.0 4.1 0
-    mol selection "protein"
+    if {$cg} {
+        mol representation Licorice 0.60 20.0 20.0
+    } else {
+        mol representation NewCartoon 0.30 20.0 4.1 0
+    }
+    mol selection $psel
     mol color ColorID $pc
     mol material AOChalky
     mol addrep $molid
@@ -260,7 +279,7 @@ proc vizard_reps {molid args} {
 
         mol representation Licorice 0.08 24.0 24.0
         mol selection \
-            "(same residue as (protein and within $opt(-pocket) of ($lig))) and $shown"
+            "(same residue as ($psel and within $opt(-pocket) of ($lig))) and $shown"
         mol color ColorID $pc
         mol material AOChalky
         mol addrep $molid

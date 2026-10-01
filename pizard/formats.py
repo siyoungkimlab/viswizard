@@ -253,13 +253,19 @@ if __name__ == "__main__":
 # ------------------------------------------------------------------ PyMOL
 def _model_to_lists(obj_or_sel):
     from pymol import cmd
+    import cg as _cg                # "cg" is a local below: the gamma cosine
     m = cmd.get_model(obj_or_sel)
     atoms = []
     for a in m.atom:
         sym = (a.symbol or "").strip()
+        # a coarse-grained backbone bead was renamed CA on the way in and left
+        # its own name in text_type, so the file gets its name back
+        name, was = a.name, (getattr(a, "text_type", "") or "").strip()
+        if name.strip().upper() == _cg.CA and was.upper() in _cg.BACKBONE:
+            name = was
         atoms.append({
             "anum": _SYM2NUM.get(sym.upper(), 0), "elem": sym,
-            "name": a.name, "resname": a.resn,
+            "name": name, "resname": a.resn,
             "resid": int(a.resi) if str(a.resi).lstrip("-").isdigit() else 1,
             "chain": a.chain, "segid": a.segi,
             "x": a.coord[0], "y": a.coord[1], "z": a.coord[2],
@@ -292,6 +298,13 @@ def load_dms(filename, object="", state=0, quiet=1, zoom=-1, _self=None):
     if _self is None:
         from pymol import cmd as _self
     d = read_dms(filename)
+    # A coarse-grained file names beads, not atoms, and its elements are
+    # whatever the bead names happened to suggest to whatever wrote it, so the
+    # beads are given the element they stand for and the backbone bead is
+    # renamed CA.  It has to happen here, before PyMOL sees the model: that is
+    # when PyMOL decides what each residue is, and it will not revisit it.
+    import cg
+    coarse = cg.looks_coarse_grained(a["name"] for a in d["atoms"])
     model = Indexed()
     for a in d["atoms"]:
         at = Atom()
@@ -302,6 +315,11 @@ def load_dms(filename, object="", state=0, quiet=1, zoom=-1, _self=None):
         at.resi = str(a["resid"])
         at.formal_charge = a["formal_charge"]
         at.partial_charge = a["charge"]
+        if coarse:
+            fix = cg.pymol_atom(a["name"], a["resname"])
+            if fix:
+                at.name, at.symbol, at.hetatm = fix
+                at.text_type = a["name"]      # the bead's own name, kept
         model.atom.append(at)
     for i, j, o in d["bonds"]:
         bd = Bond(); bd.index = [i, j]; bd.order = o

@@ -306,6 +306,11 @@ def load_mae(filename, object="", state=0, quiet=1, multiplex=-1, zoom=-1,
     counts = set(len(c["atoms"]) for c in cts)
     as_states = (multiplex == 0) or (multiplex < 0 and len(counts) == 1)
 
+    # A coarse-grained model has to be corrected before PyMOL sees it -- see
+    # cg.pymol_atom -- so work out whether this is one, over every block.
+    import cg
+    coarse = cg.looks_coarse_grained(a["name"] for c in cts for a in c["atoms"])
+
     for k, ct in enumerate(cts):
         model = Indexed()
         for a in ct["atoms"]:
@@ -320,6 +325,11 @@ def load_mae(filename, object="", state=0, quiet=1, multiplex=-1, zoom=-1,
             at.b, at.q = a["b"], a["q"]
             at.formal_charge = a["formal_charge"]
             at.hetatm = a["resn"] not in _POLYMER
+            if coarse:
+                fix = cg.pymol_atom(a["name"], a["resn"])
+                if fix:
+                    at.name, at.symbol, at.hetatm = fix
+                    at.text_type = a["name"]   # the bead's own name, kept
             model.atom.append(at)
         for i, j, o in ct["bonds"]:
             bd = Bond()

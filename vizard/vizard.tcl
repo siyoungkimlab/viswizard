@@ -38,7 +38,9 @@ Options (all optional; values may contain spaces):
                  held together -- and shown.
   --glue SEL     what is held together across the periodic boundary
                                                   (default "protein or (<ligand>)")
-  --align SEL    what the trajectory is fitted on (default "protein and name CA")
+  --align SEL    what the trajectory is fitted on
+                 (default "(protein and name CA) or name BB GC" -- CA for an
+                 all-atom model, BB for Martini, GC for SIRAH)
   --pocket A     pocket residue distance cutoff, angstroms      (default 6)
   --strip SEL    dropped right after loading, since it is never drawn and it
                  is most of the atoms         (default "water or ions";
@@ -97,6 +99,10 @@ ligand, so several structures stay distinguishable.
 }
 }
 
+# More ligand molecules than this and it is co-solvent, not a ligand: it gets
+# wrapped around the protein rather than held together with it.
+set ::vizard_cosolvent 8
+
 proc vizard_main {} {
     global argv env
 
@@ -117,7 +123,7 @@ proc vizard_main {} {
     if {[info commands glue_traj] eq ""} {
         error "sourced $glue but glue_traj is undefined"
     }
-    foreach _f {movie formats align view browse} {
+    foreach _f {movie formats align view browse cg} {
         catch { uplevel #0 [list source [file join [file dirname $glue] $_f.tcl]] }
     }
     puts "vizard: using $glue"
@@ -175,7 +181,13 @@ proc vizard_main {} {
     if {[info exists A(ligand)] && $A(ligand) ne ""} { set ligsel $A(ligand) }
     set gluesel "protein or ($ligsel)"
     if {[info exists A(glue)] && $A(glue) ne ""} { set gluesel $A(glue) }
-    set alignsel "protein and name CA"
+    # CA for an all-atom model, BB for Martini, GC for SIRAH: a coarse-grained
+    # model has no CA, and VMD's "protein" does not match its beads either, so
+    # the residue name stands in for it -- otherwise a box of dipeptide probes
+    # carrying a BB bead each joins the fit and the protein wanders.
+    set cgpro [expr {[info commands ::CG::protein] ne "" ? [::CG::protein] : "none"}]
+    set cgsolv [expr {[info exists ::CG::SOLVENT] ? [join $::CG::SOLVENT { }] : ""}]
+    set alignsel "(protein and name CA) or (name BB GC and ($cgpro))"
     if {[info exists A(align)] && $A(align) ne ""} { set alignsel $A(align) }
     set stripsel "water or ions"
     if {[info exists A(strip)] && $A(strip) ne ""} { set stripsel $A(strip) }
@@ -245,8 +257,18 @@ proc vizard_main {} {
         set kept {}
         foreach m $mols {
             set keep ""
-            if {[catch {atomselect $m "not ($stripsel)"} s]} {
-                error "strip selection '$stripsel' is not valid VMD syntax: $s"
+            # Neither "water" nor "ions" matches a Martini water bead, whose
+            # residue is called W, so a coarse-grained model would keep every
+            # one of them -- 5665 of 7266 beads in a pocket-search box.
+            set ss $stripsel
+            if {![info exists A(strip)] || $A(strip) eq ""} {
+                if {[info commands ::CG::solvent] ne ""
+                    && [::CG::coarse_grained $m]} {
+                    set ss "($stripsel) or ([::CG::solvent])"
+                }
+            }
+            if {[catch {atomselect $m "not ($ss)"} s]} {
+                error "strip selection '$ss' is not valid VMD syntax: $s"
             }
             set nall [molinfo $m get numatoms]
             set ncut [expr {$nall - [$s num]}]
@@ -261,6 +283,15 @@ proc vizard_main {} {
                 set dcd [file join $dir solute.dcd]
                 animate write dcd $dcd sel $s waitfor all $m
             }
+            # A PDB carries no bonds, and VMD guesses them from distance when
+            # it reads one back.  That is right for an all-atom model and
+            # useless for a coarse-grained one, whose beads sit ~3.5 A apart:
+            # every bead comes back unbonded, so making molecules whole has
+            # nothing to walk and the wrap moves beads rather than molecules --
+            # which splits a two-bead probe across the box.  So carry the
+            # bonds over by hand, in the kept atoms' own numbering.
+            set oldidx [$s list]
+            set oldbonds [$s getbonds]
             $s delete
             mol delete $m
             set new [mol new $pdb waitfor all]
@@ -268,11 +299,63 @@ proc vizard_main {} {
                 mol addfile $dcd waitfor all $new
                 animate delete beg 0 end 0 $new
             }
+            unset -nocomplain map
+            set i 0
+            foreach o $oldidx { set map($o) $i ; incr i }
+            set newbonds {}
+            set clipped 0
+            foreach bs $oldbonds {
+                set row {}
+                foreach b $bs {
+                    if {[info exists map($b)]} { lappend row $map($b) }
+                }
+                # VMD stores at most 12 bonds per atom and refuses a longer
+                # row.  A Martini elastic network goes past that, and VMD has
+                # already dropped the extras itself while reading the file.
+                if {[llength $row] > 12} {
+                    incr clipped
+                    set row [lrange $row 0 11]
+                }
+                lappend newbonds $row
+            }
+            set ns [atomselect $new all]
+            if {[catch {$ns setbonds $newbonds} err]} {
+                puts "vizard: could not carry the file's bonds across the strip\
+                      ($err) -- VMD's distance guess stands, which a\
+                      coarse-grained model will not survive"
+            } else {
+                # setbonds does not update the fragment numbering, which VMD
+                # works out while reading a file -- and "pbc wrap -compound
+                # fragment" is what the wrap moves molecules by, so without
+                # this every bead is its own fragment and a molecule is torn
+                # apart rather than moved.
+                mol reanalyze $new
+            }
+            if {$clipped} {
+                puts "vizard: $clipped atoms carry more than VMD's 12 bonds\
+                      (an elastic network); the extras are dropped"
+            }
+            $ns delete
             lappend kept $new
             puts [format "vizard: molid %-3s dropped %d of %d atoms (%s);\
-                  --strip none keeps them" $m $ncut $nall $stripsel]
+                  --strip none keeps them" $m $ncut $nall $ss]
         }
         set mols $kept
+    }
+
+    # A coarse-grained file names beads, not atoms: VMD leaves every one of
+    # them element X, atomic number 0, and a radius picked off the first
+    # letter -- 1.9 A for "SC1", which is sulfur's.  Give each bead the
+    # element it stands for, so colouring by element means something.
+    set cgmols {}
+    if {[info commands vizard_cg_elements] ne ""} {
+        foreach m $mols {
+            if {[::CG::coarse_grained $m]} {
+                lappend cgmols $m
+                vizard_cg_elements $m
+                vizard_cg_bonds $m
+            }
+        }
     }
 
     mol top [lindex $mols 0]
@@ -292,9 +375,16 @@ proc vizard_main {} {
             # the names catch an ion that arrived without one.  Caps are not
             # protein as far as VMD is concerned, and neither caps nor the
             # usual crystallisation additives are ligands.
-            atomselect macro vizard_ligand {not (protein or nucleic or water or
-                ions or lipid or glycan) and not name Na Cl NA CL and
-                not resname ACE NME NMA NH2 GOL SO4 PO4 EDO PEG MPD ACT DMS TRS}
+            # the coarse-grained water and ion residues come from cg.tcl, so
+            # the two lists cannot drift apart
+            # $cgpro keeps a coarse-grained protein out: VMD's "protein"
+            # matches none of its beads, so without it the protein itself
+            # comes back as the ligand
+            atomselect macro vizard_ligand "not (protein or nucleic or water or
+                ions or lipid or glycan or ($cgpro)) and
+                not name Na Cl NA CL and
+                not resname ACE NME NMA NH2 GOL SO4 PO4 EDO PEG MPD ACT DMS\
+                TRS $cgsolv"
             set alt "vizard_ligand"
             set n 0
             foreach m $mols {
@@ -341,9 +431,29 @@ proc vizard_main {} {
         }
         # the default glue names the ligand; an explicit --glue is kept as given
         set g $gluesel
-        if {$nl == 0 && !([info exists A(glue)] && $A(glue) ne "")} {
-            set g "protein"
+        set own [expr {[info exists A(glue)] && $A(glue) ne ""}]
+        # VMD's "protein" matches none of a coarse-grained model, so the
+        # protein's own beads are named by residue instead
+        set pro [expr {[lsearch -exact $cgmols $m] >= 0 ? $cgpro : "protein"}]
+        if {$nl == 0 && !$own} {
+            set g $pro
             puts "vizard: molid $m -- no ligand matched; gluing protein only"
+        } elseif {$nl > 0 && !$own} {
+            # A ligand of a few molecules is held together with the protein
+            # across the boundary.  A few hundred of them are not a ligand but
+            # co-solvent -- the dipeptide probes of a pocket search, say -- and
+            # holding those with the protein lets them outvote it over where
+            # the cluster goes, so they come out on one side of the box in one
+            # frame and the other side in the next.  Co-solvent is wrapped
+            # around the protein instead, like water, which is what it is for.
+            set ls [atomselect $m "$ligsel"]
+            set nm [llength [lsort -unique -integer [$ls get fragment]]]
+            $ls delete
+            if {$nm > $::vizard_cosolvent} {
+                set g $pro
+                puts "vizard: molid $m -- $nm ligand molecules: co-solvent, not\
+                      a ligand -- wrapped around the protein, not held with it"
+            }
         }
         glue_traj -molid $m -glue $g -align $alignsel -quiet [expr {[llength $mols] > 1}]
     }
@@ -495,9 +605,24 @@ proc vizard_main {} {
 
         mol delrep 0 top
 
-        mol representation NewCartoon 0.30 20.0 4.1 0
-        mol selection "protein"
-        mol color Structure
+        # A coarse-grained model has no backbone for NewCartoon to follow --
+        # VMD's own cartoon styles want atoms named CA -- so its backbone
+        # beads, bonded to their neighbours above, are drawn as Licorice,
+        # which comes out as the same continuous trace.
+        set psel "protein"
+        if {[lsearch -exact $cgmols [molinfo top]] >= 0} {
+            # the protein's own backbone beads: every probe in a pocket-search
+            # box carries a BB bead too, and 420 of those drawn as licorice
+            # bury the trace this rep is for
+            set psel "name BB GC and ($cgpro)"
+            mol representation Licorice 0.60 20.0 20.0
+            mol selection $psel
+            mol color ColorID 10
+        } else {
+            mol representation NewCartoon 0.30 20.0 4.1 0
+            mol selection "protein"
+            mol color Structure
+        }
         mol material AOChalky
         mol addrep top
         set rep_cartoon [expr {[molinfo top get numreps] - 1}]
@@ -514,7 +639,7 @@ proc vizard_main {} {
             # pocket: whole residues within --pocket A of the ligand.  Distance-based, so it
             # must be re-evaluated every frame or it freezes at frame 0.
             mol representation Licorice 0.08 24.0 24.0
-            mol selection "(same residue as (protein and within $pocketcut of ($ligsel))) and $shown"
+            mol selection "(same residue as ($psel and within $pocketcut of ($ligsel))) and $shown"
             mol color Name
             mol material AOChalky
             mol addrep top

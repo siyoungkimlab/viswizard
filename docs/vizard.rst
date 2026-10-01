@@ -51,6 +51,8 @@ not only ones started through ``vizard``.
 Command                                       What it does
 ============================================  ==========================================
 ``ao off``                                    drop shadows + AO, for speed
+``cgelem``                                    give beads their element
+``cgbonds``                                   bond backbone beads in a chain
 ``browse``                                    step through the molecules
 ``view 1 0``                                  frame on rep 1 of molid 0
 ``viewsel "resid 45"``                        frame on any selection
@@ -131,6 +133,88 @@ gaps and different chain lengths are all fine. It then fits the matched Cα
 pairs and re-fits while dropping outliers past ``-cutoff``, reporting how many
 residues matched and the final RMSD — judge the result by those two numbers,
 since unrelated proteins still produce a transform.
+
+Coarse-grained models
+---------------------
+
+The fit selection covers them: ``CA`` for an all-atom model, ``BB`` for
+Martini, ``GC`` for SIRAH — one bead per residue in each case, which is what
+the fit and the sequence superposition want. A coarse-grained model has no
+``CA`` at all, and VMD's ``protein`` does not match its beads either, hence the
+``or name`` half of the default.
+
+Such a file names beads, not atoms, and says nothing about elements, so each
+bead is given the element it stands for: ``BB`` and Martini's side-chain beads
+carbon, SIRAH's ``GN``/``GC``/``GO`` nitrogen, carbon and oxygen — SIRAH names
+a bead for the atom it is centred on, so the second letter is the element —
+water beads oxygen, and an ion bead its own ion. VMD would otherwise leave every bead as element X, atomic number 0, with a radius taken off the first letter — 1.9 Å for ``SC1``, which is sulfur's. ``cgelem`` does it by hand in a session.
+
+VMD's cartoon styles are no use here: NewCartoon wants a full N/CA/C/O backbone, and Tube, Trace and Ribbons follow atoms named ``CA``, so all of them draw nothing. Instead each backbone bead is bonded to the next one in its chain and drawn as Licorice, which comes out as the same continuous trace; ``cgbonds`` does the bonding by hand.
+
+Both the trace and that bonding are restricted to the protein's own beads,
+named by residue. A pocket search fills the box with dipeptide probes carrying
+one ``BB`` bead each, and 420 of those drawn as licorice bury the trace the rep
+is for — while bonding ``name BB GC`` wholesale walks the list in file order
+and joins beads of different probes that happen to be close, bonds that then
+stretch across the box the moment anything is wrapped.
+
+A coarse-grained file's beads sit ~3.5 Å apart, well beyond any distance-based
+bond search, so a format that carries no bonds — a PDB or a GRO — arrives with
+none, and every bead is its own molecule. That matters more than it sounds:
+"make molecules whole" has nothing to walk, and the wrap moves beads instead of
+molecules, which tears a two-bead probe in half across the box. A DMS or an MAE
+does carry its bonds, and vizard carries them over the ``--strip``
+rewrite by hand, in the kept atoms' own numbering: VMD cannot write bonds to a
+PDB and guesses them from distance when it reads one back, which is right for
+an all-atom model and leaves a coarse-grained one in pieces. Changing an
+atom's bonds does not renumber VMD's fragments either, and fragments are what
+the wrap moves molecules by, so ``mol reanalyze`` follows every change. A bead
+already carrying VMD's maximum of twelve bonds — a Martini elastic network
+reaches that — keeps the twelve it has.
+
+
+Martini water is ``resname W``, which neither VMD's ``water`` nor PyMOL's
+``solvent`` matches, and ion beads come under ``ION``, ``NA``, ``SOD`` and the
+like. ``--strip`` names them itself for a coarse-grained model, so a 7266-bead
+pocket-search box drops 5834 water and ion beads rather than 8 — the list lives
+beside the element tables in ``pizard/cg.py`` and ``vizard/cg.tcl``. Everything
+else in the model is kept: the probes and the lipids are not solvent, and
+``inorganic`` would have taken them too.
+
+Periodic boundaries
+-------------------
+
+A trajectory arrives with every molecule placed wherever the periodic box put
+it, so the protein sits in a corner one frame and the ligand across the box
+the next. Four steps, in this order:
+
+1. every molecule is made whole, by walking its bonds rather than by distance;
+2. the protein and anything named by ``--glue`` are placed on their jointly
+   best images, so a dimer straddling the boundary comes back together;
+3. every other molecule moves as a whole onto the image nearest the protein;
+4. the protein is put in the middle of the box, which leaves everything else
+   inside the cell, and the fit then carries every frame onto that same frame
+   of reference.
+
+The protein here is the whole molecule the fit selection sits on, not the fit
+atoms, so ``--align`` can name one loop without pulling the centre into a
+corner of the protein — and not the centre of everything glued, which a few
+hundred co-solvent molecules would outvote.
+
+That last point is why a ligand of more than 8 molecules is treated as
+co-solvent: the dipeptide probes of a pocket search are not a ligand, and
+placing 420 of them *with* the protein let them decide where the cluster went.
+On a 3lnz Martini box their centre sat 39 Å off the protein, swinging up to
+58 Å; wrapped around it instead, it stays within 5.5 Å, which is what 420
+molecules of noise looks like. Their own frame-to-frame image flips halved.
+
+Naming ``--glue`` yourself switches that off and glues exactly what you say;
+``set vizard_cosolvent 40`` moves the line instead.
+
+A molecule that happens to sit half a box away still flips between frames —
+every wrap has that boundary somewhere, and with free solvent diffusing ~18 Å
+between saved frames a fifth of it is near one. What is gone is the whole
+cloud moving at once.
 
 Crystal structures
 ------------------

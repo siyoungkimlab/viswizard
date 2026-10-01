@@ -114,6 +114,100 @@ either way.
    pizard sys.pdb traj.dcd --strip "solvent or resn POPC"   # membrane too
    pizard sys.pdb traj.dcd --strip none                     # keep it all
 
+Coarse-grained models
+---------------------
+
+Such a file names beads, not atoms, and says nothing about elements, so each
+bead is given the element it stands for: ``BB`` and Martini's side-chain beads
+carbon, SIRAH's ``GN``/``GC``/``GO`` nitrogen, carbon and oxygen — SIRAH names
+a bead for the atom it is centred on, so the second letter is the element —
+water beads oxygen, and an ion bead its own ion. PyMOL would otherwise guess from the name and read Martini water ``W`` as tungsten, the sodium bead ``SOD`` as sulfur, and the glycerol beads ``GL1``/``GL2`` as an element ``G`` that does not exist.
+
+The backbone bead — Martini's ``BB``, SIRAH's ``GC`` — is renamed ``CA`` on the
+way in, and the beads of an amino acid are marked as polymer. That is what
+makes PyMOL treat the model as a protein: ``polymer`` selects it, the residues
+get guide atoms, and ``align``, ``super``, ``cealign`` and the GUI's
+**action → align → to molecule** all work on it, against another
+coarse-grained model or against a structure you fetched. The bead's own name
+is kept in ``text_type``, so ``iterate`` still tells you what it was.
+
+This has to happen while the file is being read. PyMOL settles what each
+residue is as it reads it and does not revisit the question, so a bead that
+arrived with a bogus element is not part of a protein and cannot be made into
+one afterwards: correcting the elements and re-sorting brings back the guide
+atoms and ``cealign``, but ``align`` and ``super`` stay broken. The DMS and
+MAE readers therefore do it in place, as the model is built. A coarse-grained
+PDB or GRO is read by PyMOL itself, before pizard sees it, so such a model
+gets its elements, its cartoon and ``cealign``, but not ``align`` and
+``super``.
+
+The fit selection follows from the rename: ``(name CA and elem C) or (polymer
+and name BB+GC)`` — one bead per residue, which is what the fit and the
+sequence superposition want. The ``elem C`` half is what keeps a calcium ion,
+also called ``CA``, out of the fit; it is exactly what ``polymer and name CA``
+used to do, and it works on a model PyMOL never called a polymer. ``name
+BB+GC`` covers a model loaded outside pizard, under the names its file uses,
+and ``polymer`` guards it: a box can hold beads called ``BB`` that are not the
+protein at all. In a pocket search, each dipeptide probe carries one, and
+their residue names (``WW``, ``FY``, ``EE``, …) are not names any reader
+knows, so they are beads and nothing more. Fitting on 420 probes diffusing
+through the box left the protein wandering 36 Å; fitting on the protein's own
+85 backbone beads holds it still.
+
+If a model has no residue the reader recognised — a box of nothing but probes,
+say — the guard would leave the fit empty, so the beads are taken under their
+own names after all, and pizard says so.
+
+The backbone gets a cartoon, through ``cartoon_trace_atoms``, which is PyMOL's setting for exactly this: it traces the beads themselves rather than looking for a backbone, drawn as a tube. A plain cartoon on the same beads draws nothing at all.
+
+A coarse-grained file's beads sit ~3.5 Å apart, well beyond any distance-based
+bond search, so a format that carries no bonds — a PDB or a GRO — arrives with
+none, and every bead is its own molecule. That matters more than it sounds:
+"make molecules whole" has nothing to walk, and the wrap moves beads instead of
+molecules, which tears a two-bead probe in half across the box. A DMS or an MAE
+does carry its bonds, and pizard keeps them.
+
+
+Martini water is ``resname W``, which neither VMD's ``water`` nor PyMOL's
+``solvent`` matches, and ion beads come under ``ION``, ``NA``, ``SOD`` and the
+like. ``--strip`` names them itself for a coarse-grained model, so a 7266-bead
+pocket-search box drops 5834 water and ion beads rather than 8 — the list lives
+beside the element tables in ``pizard/cg.py`` and ``vizard/cg.tcl``. Everything
+else in the model is kept: the probes and the lipids are not solvent, and
+``inorganic`` would have taken them too.
+
+Periodic boundaries
+-------------------
+
+A trajectory arrives with every molecule placed wherever the periodic box put
+it, so the protein sits in a corner one frame and the ligand across the box
+the next. Four steps, in this order:
+
+1. every molecule is made whole, by walking its bonds rather than by distance;
+2. the protein and anything named by ``--glue`` are placed on their jointly
+   best images, so a dimer straddling the boundary comes back together;
+3. every other molecule moves as a whole onto the image nearest the protein;
+4. the protein is put in the middle of the box, which leaves everything else
+   inside the cell, and the fit then carries every frame onto that same frame
+   of reference.
+
+The protein here is the whole molecule the fit selection sits on, not the fit
+atoms, so ``--align`` can name one loop without pulling the centre into a
+corner of the protein — and not the centre of everything glued, which a few
+hundred co-solvent molecules would outvote.
+
+That last point is why a ligand of more than 8 molecules is treated as
+co-solvent: the dipeptide probes of a pocket search are not a ligand, and
+placing 420 of them *with* the protein let them decide where the cluster went.
+On a 3lnz Martini box their centre sat 39 Å off the protein, swinging up to
+58 Å; wrapped around it instead, it stays within 5.5 Å, which is what 420
+molecules of noise looks like. Their own frame-to-frame image flips halved.
+
+A molecule that happens to sit half a box away still flips between frames —
+every wrap has that boundary somewhere, and with free solvent diffusing ~18 Å
+between saved frames a fifth of it is near one. What is gone is the whole
+cloud moving at once.
+
 Crystal structures
 ------------------
 
