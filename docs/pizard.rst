@@ -141,12 +141,22 @@ PDB or GRO is read by PyMOL itself, before pizard sees it, so such a model
 gets its elements, its cartoon and ``cealign``, but not ``align`` and
 ``super``.
 
-The fit selection follows from the rename: ``(name CA and elem C) or name
-BB+GC`` — one bead per residue, which is what the fit and the sequence
-superposition want. The ``elem C`` half is what keeps a calcium ion, also
-called ``CA``, out of the fit; it is exactly what ``polymer and name CA`` used
-to do, and it works on a model PyMOL never called a polymer. ``name BB+GC``
-covers a model loaded outside pizard, under the names its file uses.
+The fit selection follows from the rename: ``(name CA and elem C) or (polymer
+and name BB+GC)`` — one bead per residue, which is what the fit and the
+sequence superposition want. The ``elem C`` half is what keeps a calcium ion,
+also called ``CA``, out of the fit; it is exactly what ``polymer and name CA``
+used to do, and it works on a model PyMOL never called a polymer. ``name
+BB+GC`` covers a model loaded outside pizard, under the names its file uses,
+and ``polymer`` guards it: a box can hold beads called ``BB`` that are not the
+protein at all. In a pocket search, each dipeptide probe carries one, and
+their residue names (``WW``, ``FY``, ``EE``, …) are not names any reader
+knows, so they are beads and nothing more. Fitting on 420 probes diffusing
+through the box left the protein wandering 36 Å; fitting on the protein's own
+85 backbone beads holds it still.
+
+If a model has no residue the reader recognised — a box of nothing but probes,
+say — the guard would leave the fit empty, so the beads are taken under their
+own names after all, and pizard says so.
 
 The backbone gets a cartoon, through ``cartoon_trace_atoms``, which is PyMOL's setting for exactly this: it traces the beads themselves rather than looking for a backbone, drawn as a tube. A plain cartoon on the same beads draws nothing at all.
 

@@ -110,14 +110,19 @@ def solute_beads(names, rename=False):
     "inorganic" whatever its beads are -- "polymer" matches none of it.  The
     beads themselves are what is left to name.
 
-    With rename, a backbone bead is listed as CA, the name PyMOL has for it
-    once the model is loaded; a bead already called CA is a calcium ion, which
-    is not solute either way.
+    With rename, a backbone bead is listed under both names: CA, which is what
+    PyMOL calls it once the model is loaded, and the file's own name, because
+    only the beads of a residue the reader recognised were renamed.  A system
+    can hold both -- a protein and, say, the dipeptide probes of a pocket
+    search, whose residue names (WW, FY, EE) no reader knows.  A bead already
+    called CA is a calcium ion, which is not solute either way.
     """
     out = set()
     for n in set(names):
         if str(n).strip().upper() in BACKBONE:
-            out.add(CA if rename else n)
+            out.add(n)
+            if rename:
+                out.add(CA)
         elif element(n) and not is_water(n) and not is_ion(n):
             out.add(n)
     return sorted(out)

@@ -51,8 +51,11 @@ DEFAULT_LIGAND = "organic and not resn ACE+NMA+NME"
 # renamed CA as the file is read.  "elem C" is what keeps a calcium ion, also
 # called CA, out of the fit; it does the job "polymer and name CA" used to do,
 # and it works on a model PyMOL never called a polymer.  The bead names cover a
-# model loaded outside pizard, under the names its file uses.
-DEFAULT_FIT = "(name CA and elem C) or name BB+GC"
+# model loaded outside pizard, under the names its file uses -- guarded by
+# "polymer", because a system can hold beads called BB that are not the protein
+# at all: the dipeptide probes of a pocket search carry one each, and fitting on
+# 420 probes diffusing through the box leaves the protein wandering.
+DEFAULT_FIT = "(name CA and elem C) or (polymer and name BB+GC)"
 
 # Thrown away right after loading: waters and ions, which are never drawn.
 DEFAULT_STRIP = "solvent or inorganic"
@@ -77,8 +80,8 @@ Options (all optional):
   --glue SEL     held together across the periodic boundary
                                                    (default "polymer or (<ligand>)")
   --align SEL    what the trajectory is fitted on
-                 (default "(name CA and elem C) or name BB+GC" -- CA for an
-                 all-atom model, BB for Martini, GC for SIRAH)
+                 (default "(name CA and elem C) or (polymer and name BB+GC)"
+                 -- CA for an all-atom model, BB for Martini, GC for SIRAH)
   --pocket A     pocket residue cutoff, angstroms  (default 6)
   --ref FILE|ID  reference structure, a file or a 4-character PDB id (fetched
                  and cached).  The trajectory is put onto it with cealign,
@@ -224,9 +227,10 @@ def main(argv=None):
         # and they leave the bead's own name in text_type to say they did.
         if cmd.count_atoms("(%s) and text_type %s"
                            % (obj, "+".join(_cg.BACKBONE))):
-            print("pizard: %-16s coarse-grained: %d beads, %d of them backbone,"
-                  " read as a protein"
+            print("pizard: %-16s coarse-grained: %d beads, %d read as a"
+                  " protein (%d backbone)"
                   % (obj, cmd.count_atoms(obj),
+                     cmd.count_atoms("(%s) and polymer" % obj),
                      cmd.count_atoms("(%s) and name %s" % (obj, _cg.CA))))
             continue
         # A file PyMOL read itself, a Martini PDB or GRO, is still worth
@@ -273,9 +277,23 @@ def main(argv=None):
           % (o.ligand, gluesel, o.align))
 
     # ---- glue + internal alignment, per object ------------------------------
+    fits = {}
     for name in objs:
         nl = cmd.count_atoms("(%s) and (%s)" % (name, o.ligand))
-        na = cmd.count_atoms("(%s) and (%s)" % (name, o.align))
+        fit = o.align
+        na = cmd.count_atoms("(%s) and (%s)" % (name, fit))
+        if na < 3 and fit == DEFAULT_FIT and name in cg_objs:
+            # nothing the reader recognised as a residue, so the "polymer"
+            # guard in the default leaves the fit empty: take the beads under
+            # their own names after all
+            alt = _cg.backbone_selection()
+            nalt = cmd.count_atoms("(%s) and (%s)" % (name, alt))
+            if nalt >= 3:
+                print("pizard: %-16s coarse-grained: no residue read as a"
+                      " protein; fitting on its %d backbone beads"
+                      % (name, nalt))
+                fit, na = alt, nalt
+        fits[name] = fit
         if na < 3:
             print("pizard: %s -- align selection matches %d atoms, skipping" % (name, na))
             continue
@@ -301,8 +319,8 @@ def main(argv=None):
         if not g or not cmd.count_atoms("(%s) and (%s)" % (name, g)):
             print("pizard: %s -- nothing to glue; aligning on the fit selection"
                   % name)
-            g = o.align
-        glue_traj(glue=g, align=o.align, obj=name, quiet=1)
+            g = fit
+        glue_traj(glue=g, align=fit, obj=name, quiet=1)
 
     # ---- put everything into one frame of reference ------------------------
     # glue_traj has already fitted every state onto state 1, so moving an
@@ -311,7 +329,7 @@ def main(argv=None):
     def _fit_beads(obj):
         """(resname, x, y, z) for the fit selection, one per residue, in order."""
         rows = []
-        cmd.iterate_state(1, "(%s) and (%s)" % (obj, o.align),
+        cmd.iterate_state(1, "(%s) and (%s)" % (obj, fits.get(obj, o.align)),
                           "rows.append((resn, x, y, z))", space={"rows": rows})
         return rows
 

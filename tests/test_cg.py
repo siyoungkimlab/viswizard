@@ -122,7 +122,10 @@ def test_a_bead_called_ca_keeps_whatever_it_already_has():
 
 def test_the_glue_names_the_backbone_as_pymol_has_it():
     names = ["BB", "SC1", "W", "SOD"]
-    assert cg.solute_beads(names, rename=True) == ["CA", "SC1"]
-    assert cg.solute_selection(names, rename=True) == "name CA+SC1"
+    # both names: only the beads of a residue the reader knew were renamed, and
+    # a box can hold both -- a protein and the dipeptide probes of a pocket
+    # search, whose residue names no reader knows, each carrying its own BB
+    assert cg.solute_beads(names, rename=True) == ["BB", "CA", "SC1"]
+    assert cg.solute_selection(names, rename=True) == "name BB+CA+SC1"
     # VMD reads the beads under their own names, so nothing is renamed there
     assert cg.solute_selection(names, pymol=False) == "name BB SC1"
