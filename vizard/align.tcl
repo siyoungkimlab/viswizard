@@ -214,7 +214,12 @@ proc vizard_reps {molid args} {
     # are drawn as Licorice -- see cg.tcl.
     set cg [expr {[info commands ::CG::coarse_grained] ne ""
                   && [::CG::coarse_grained $molid]}]
-    set psel [expr {$cg ? "name BB GC" : "protein"}]
+    set psel "protein"
+    if {$cg} {
+        # the protein's own beads: a box of dipeptide probes carries a BB bead
+        # per probe, and those would bury the trace
+        set psel "name BB GC and ([::CG::protein])"
+    }
 
     set lig $opt(-ligand)
     if {$lig eq ""} { set lig "not (protein or nucleic or water or ions)" }

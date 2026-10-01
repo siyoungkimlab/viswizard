@@ -386,13 +386,19 @@ proc ::Glue::parallel_run {molid optlist joinsel nw topfile toptype dir} {
     set aidx [$s list]
     $s delete
     if {![llength $aidx]} { set aidx $gidx }
-    set s [atomselect $molid all]; set frag [$s get fragment]; $s delete
+    set s [atomselect $molid all]
+    set frag [$s get fragment]
+    # The worker reloads the structure file, and a PDB carries no bonds, so VMD
+    # guesses them -- which for a coarse-grained model means none at all, and
+    # fragments that do not match this VMD's.  Send the bonds along.
+    set bonds [$s getbonds]
+    $s delete
 
     animate write dcd [file join $dir frames.dcd] waitfor all $molid
     set fh [open [file join $dir job.tcl] w]
     puts $fh [list set ::Glue::job [dict create topfile $topfile toptype $toptype \
         gidx $gidx aidx $aidx cidxs $cidxs midxs $midxs jidx $jidx edges $edges \
-        frag $frag wrap $wrap others $others]]
+        frag $frag bonds $bonds wrap $wrap others $others]]
     close $fh
 
     # consecutive ranges; chunk k holds frames first..last
@@ -463,6 +469,10 @@ proc ::Glue::worker_run {dir k first last} {
     mol addfile [file join $dir frames.dcd] type dcd first $first last $last \
                 waitfor all $m
     set all [atomselect $m all]
+    # the file's own bonds, as the main VMD has them -- see parallel
+    if {[info exists bonds] && [llength $bonds] == [$all num]} {
+        if {![catch {$all setbonds $bonds}]} { mol reanalyze $m }
+    }
     if {[$all get fragment] ne $frag} {
         error "fragments differ from the main VMD's"
     }

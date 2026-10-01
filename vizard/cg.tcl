@@ -58,6 +58,15 @@ proc ::CG::element {name} {
     return ""
 }
 
+# the residue names coarse-grained solvent and ions come under: VMD's "water"
+# matches none of them, so without this a Martini box strips almost nothing
+set ::CG::SOLVENT {W WF WN WT4 ION NA CL SOD CLA POT CAL MG ZN NAW CLW}
+
+proc ::CG::solvent {} {
+    variable SOLVENT
+    return "resname [join $SOLVENT { }]"
+}
+
 # A selection for the protein's own beads: the analogue of PyMOL's polymer
 # flag, which pizard's readers set from the same list.
 proc ::CG::protein {} {
@@ -109,7 +118,12 @@ proc vizard_cg_elements {{molid top} {quiet 0}} {
 # its chain and drawing Licorice gives the same continuous backbone.
 proc vizard_cg_bonds {{molid top} {quiet 0} {cutoff 6.0}} {
     if {$molid eq "top"} { set molid [molinfo top] }
-    set bb [atomselect $molid "name BB GC"]
+    # the protein's own backbone beads.  Bonding "name BB GC" wholesale walks
+    # the list in file order, so in a box of dipeptide probes -- each carrying
+    # one BB bead, all under the same chain and segname -- it bonds beads of
+    # different molecules that happen to be within the cutoff.  Those bonds
+    # then stretch across the box the moment anything is wrapped.
+    set bb [atomselect $molid "name BB GC and ([::CG::protein])"]
     set nbb [$bb num]
     if {$nbb < 2} { $bb delete ; return 0 }
     set all [atomselect $molid all]
@@ -120,6 +134,7 @@ proc vizard_cg_bonds {{molid top} {quiet 0} {cutoff 6.0}} {
     set crd [$bb get {x y z}]
     set added 0
     set already 0
+    set full 0
     set c2 [expr {$cutoff * $cutoff}]
     for {set i 0} {$i < [llength $idx] - 1} {incr i} {
         set j [expr {$i + 1}]
@@ -139,14 +154,29 @@ proc vizard_cg_bonds {{molid top} {quiet 0} {cutoff 6.0}} {
         # a .mae or .dms carries the model's own bonds, so there is often
         # nothing to add -- say so rather than reporting a bare zero
         if {[lsearch -exact [lindex $bonds $a] $b] >= 0} { incr already ; continue }
+        # VMD stores at most 12 bonds per atom and refuses a longer row.  A
+        # Martini elastic network already fills that, and a bead with twelve
+        # bonds is drawn connected to its neighbours anyway.
+        if {[llength [lindex $bonds $a]] >= 12 || [llength [lindex $bonds $b]] >= 12} {
+            incr full
+            continue
+        }
         lset bonds $a [concat [lindex $bonds $a] $b]
         lset bonds $b [concat [lindex $bonds $b] $a]
         incr added
     }
-    $all setbonds $bonds
+    if {[catch {$all setbonds $bonds} err]} {
+        $all delete ; $bb delete
+        if {!$quiet} { puts "cgbonds: molid $molid -- could not bond the\
+                             backbone beads ($err)" }
+        return 0
+    }
     $all delete ; $bb delete
+    # setbonds leaves the fragment numbering as VMD worked it out while
+    # reading the file, and that is what wrapping moves molecules by
+    if {$added} { mol reanalyze $molid }
     if {!$quiet} {
-        if {$added == 0 && $already > 0} {
+        if {$added == 0 && ($already > 0 || $full > 0)} {
             puts "cgbonds: molid $molid -- the file already bonds its $nbb\
                   backbone beads; nothing to add"
         } else {

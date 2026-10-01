@@ -125,7 +125,10 @@ Options
      - ``water or ions``
      - ``solvent or inorganic``
      - to keep solvent (``none``) or to drop more than the default, a
-       membrane say; dropped right after loading, which is most of the speed
+       membrane say; dropped right after loading, which is most of the speed.
+       For a coarse-grained model the default names the bead residues instead
+       (``W``, ``WT4``, ``ION``, …), since ``water`` and ``solvent`` match none
+       of them
    * - ``--ref``
      - –
      - –

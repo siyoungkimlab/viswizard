@@ -151,12 +151,35 @@ water beads oxygen, and an ion bead its own ion. VMD would otherwise leave every
 
 VMD's cartoon styles are no use here: NewCartoon wants a full N/CA/C/O backbone, and Tube, Trace and Ribbons follow atoms named ``CA``, so all of them draw nothing. Instead each backbone bead is bonded to the next one in its chain and drawn as Licorice, which comes out as the same continuous trace; ``cgbonds`` does the bonding by hand.
 
-Two things a coarse-grained file still will not give you. Its beads sit ~3.5 Å
-apart, beyond any distance-based bond search, so it arrives with no bonds:
-the backbone beads are bonded to their neighbours so they can be drawn, but the side chains and the lipids stay loose, and "make molecules
-whole" has nothing to work with — each of those beads is its own fragment. And
-Martini water is ``resname W``, which neither VMD's ``water`` nor PyMOL's ``solvent`` matches, so
-``--strip`` leaves it in place unless you name it: ``--strip "water or ions or resname W WF"``.
+Both the trace and that bonding are restricted to the protein's own beads,
+named by residue. A pocket search fills the box with dipeptide probes carrying
+one ``BB`` bead each, and 420 of those drawn as licorice bury the trace the rep
+is for — while bonding ``name BB GC`` wholesale walks the list in file order
+and joins beads of different probes that happen to be close, bonds that then
+stretch across the box the moment anything is wrapped.
+
+A coarse-grained file's beads sit ~3.5 Å apart, well beyond any distance-based
+bond search, so a format that carries no bonds — a PDB or a GRO — arrives with
+none, and every bead is its own molecule. That matters more than it sounds:
+"make molecules whole" has nothing to walk, and the wrap moves beads instead of
+molecules, which tears a two-bead probe in half across the box. A DMS or an MAE
+does carry its bonds, and vizard carries them over the ``--strip``
+rewrite by hand, in the kept atoms' own numbering: VMD cannot write bonds to a
+PDB and guesses them from distance when it reads one back, which is right for
+an all-atom model and leaves a coarse-grained one in pieces. Changing an
+atom's bonds does not renumber VMD's fragments either, and fragments are what
+the wrap moves molecules by, so ``mol reanalyze`` follows every change. A bead
+already carrying VMD's maximum of twelve bonds — a Martini elastic network
+reaches that — keeps the twelve it has.
+
+
+Martini water is ``resname W``, which neither VMD's ``water`` nor PyMOL's
+``solvent`` matches, and ion beads come under ``ION``, ``NA``, ``SOD`` and the
+like. ``--strip`` names them itself for a coarse-grained model, so a 7266-bead
+pocket-search box drops 5834 water and ion beads rather than 8 — the list lives
+beside the element tables in ``pizard/cg.py`` and ``vizard/cg.tcl``. Everything
+else in the model is kept: the probes and the lipids are not solvent, and
+``inorganic`` would have taken them too.
 
 Periodic boundaries
 -------------------

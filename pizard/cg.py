@@ -72,6 +72,21 @@ RESIDUES = set(
     "TYR VAL HID HIE HIP HISD HISE HISH CYX CYM ACE NME NMA".split())
 
 
+# The residue names coarse-grained solvent and ions come under.  Neither VMD's
+# "water" nor PyMOL's "solvent" matches a Martini water bead -- the residue is
+# called W -- so without this list a 7266-bead box strips 8 atoms and keeps
+# 5665 waters.  SIRAH's water is WT4 and its ions NaW/ClW; an ion bead often
+# arrives under a residue called ION, or under its own name.
+SOLVENT = ("W", "WF", "WN", "WT4", "ION", "NA", "CL", "SOD", "CLA", "POT",
+           "CAL", "MG", "ZN", "NAW", "CLW")
+
+
+def solvent_selection(pymol=True):
+    """A selection for coarse-grained water and ions, to strip."""
+    return ("resn " if pymol else "resname ") + \
+           ("+" if pymol else " ").join(SOLVENT)
+
+
 def pymol_atom(name, resname=""):
     """What PyMOL should be told about a bead: (name, element, hetatm).
 

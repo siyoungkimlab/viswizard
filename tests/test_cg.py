@@ -70,6 +70,7 @@ def test_tcl_and_python_tables_agree():
     assert tuple(zip(prefix[::2], prefix[1::2])) == cg.PREFIX
     assert _tcl_table("MARKERS") == list(cg.MARKERS)
     assert sorted(_tcl_table("RESIDUES")) == sorted(cg.RESIDUES)
+    assert _tcl_table("SOLVENT") == list(cg.SOLVENT)
 
 
 def test_water_and_ion_beads_are_told_apart():
@@ -130,3 +131,14 @@ def test_the_glue_names_the_backbone_as_pymol_has_it():
     assert cg.solute_selection(names, rename=True) == "name BB+CA+SC1"
     # VMD reads the beads under their own names, so nothing is renamed there
     assert cg.solute_selection(names, pymol=False) == "name BB SC1"
+
+
+def test_coarse_grained_water_and_ions_can_be_named_for_stripping():
+    # "solvent" and "water" match none of these, which is why --strip needs the
+    # list: a Martini water bead's residue is called W
+    assert "resn W+WF" in cg.solvent_selection()
+    assert cg.solvent_selection(pymol=False).startswith("resname W WF")
+    for name in ("W", "WT4", "ION", "SOD"):
+        assert name in cg.SOLVENT
+    # and nothing that is part of a protein
+    assert not set(cg.SOLVENT) & set(cg.RESIDUES)

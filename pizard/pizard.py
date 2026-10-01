@@ -256,24 +256,21 @@ def main(argv=None):
     # It has to happen after load_traj, which needs the atom count to match.
     if str(o.strip).strip().lower() not in ("none", "0", ""):
         for name in objs:
-            # The DMS and MAE readers mark the beads of an amino acid as
-            # polymer, so the default strip would no longer throw a Martini
-            # peptide away -- but a bead it did not recognise, in a nucleic
-            # acid or a lipid, still counts as "inorganic", and a file PyMOL
-            # read itself counts as that throughout.  Martini water is
-            # resname W, which "solvent" does not match either, so there is
-            # nothing here worth the risk; --strip "resn W+WF" still works
-            # when asked for.
+            # "solvent" does not match a Martini water bead, whose residue is
+            # called W, and "inorganic" matches every bead the reader did not
+            # recognise -- in a coarse-grained model the probes and the lipids
+            # as much as the water, so the default would take the model apart.
+            # Name the coarse-grained water and ions instead, and leave the
+            # rest of it alone.
+            strip = o.strip
             if name in cg_objs and o.strip == DEFAULT_STRIP:
-                print("pizard: %-16s coarse-grained: keeping every bead"
-                      " (--strip \"resn W+WF\" drops Martini water)" % name)
-                continue
-            sel = "(%s) and (%s)" % (name, o.strip)
+                strip = _cg.solvent_selection()
+            sel = "(%s) and (%s)" % (name, strip)
             n = cmd.count_atoms(sel)
             if n and n < cmd.count_atoms(name):
                 cmd.remove(sel)
                 print("pizard: %-16s dropped %d atoms (%s); --strip none keeps them"
-                      % (name, n, o.strip))
+                      % (name, n, strip))
 
     gluesel = o.glue or "polymer or (%s)" % o.ligand
 

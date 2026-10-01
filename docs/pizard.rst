@@ -160,12 +160,21 @@ own names after all, and pizard says so.
 
 The backbone gets a cartoon, through ``cartoon_trace_atoms``, which is PyMOL's setting for exactly this: it traces the beads themselves rather than looking for a backbone, drawn as a tube. A plain cartoon on the same beads draws nothing at all.
 
-Two things a coarse-grained file still will not give you. Its beads sit ~3.5 Å
-apart, beyond any distance-based bond search, so it arrives with no bonds:
-nothing is bonded, but the side chains and the lipids stay loose, and "make molecules
-whole" has nothing to work with — each of those beads is its own fragment. And
-Martini water is ``resname W``, which neither VMD's ``water`` nor PyMOL's ``solvent`` matches, so
-``--strip`` leaves it in place unless you name it: ``--strip "solvent or inorganic or resn W+WF"``.
+A coarse-grained file's beads sit ~3.5 Å apart, well beyond any distance-based
+bond search, so a format that carries no bonds — a PDB or a GRO — arrives with
+none, and every bead is its own molecule. That matters more than it sounds:
+"make molecules whole" has nothing to walk, and the wrap moves beads instead of
+molecules, which tears a two-bead probe in half across the box. A DMS or an MAE
+does carry its bonds, and pizard keeps them.
+
+
+Martini water is ``resname W``, which neither VMD's ``water`` nor PyMOL's
+``solvent`` matches, and ion beads come under ``ION``, ``NA``, ``SOD`` and the
+like. ``--strip`` names them itself for a coarse-grained model, so a 7266-bead
+pocket-search box drops 5834 water and ion beads rather than 8 — the list lives
+beside the element tables in ``pizard/cg.py`` and ``vizard/cg.tcl``. Everything
+else in the model is kept: the probes and the lipids are not solvent, and
+``inorganic`` would have taken them too.
 
 Periodic boundaries
 -------------------
