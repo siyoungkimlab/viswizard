@@ -9,6 +9,11 @@ Reads the CA dump VMD writes and prints the 4x4 transform.
 """
 import sys
 
+try:                       # same directory; it imports nothing of its own
+    import cg
+except ImportError:        # pragma: no cover -- superpose still works without it
+    cg = None
+
 THREE2ONE = {
     "ALA": "A", "ARG": "R", "ASN": "N", "ASP": "D", "CYS": "C", "GLN": "Q",
     "GLU": "E", "GLY": "G", "HIS": "H", "ILE": "I", "LEU": "L", "LYS": "K",
@@ -18,6 +23,22 @@ THREE2ONE = {
     "GLH": "E", "MSE": "M", "SEC": "U", "PYL": "O", "LYSH": "K", "HISB": "H",
     "NLE": "L", "ASPH": "D", "GLUH": "E",
 }
+
+
+def _one(resn):
+    """The residue's one-letter code, or X.
+
+    A SIRAH model writes its residues as sL, sHe and the rest, which are no
+    three-letter names at all: without this both sequences came out as X's and
+    the alignment was ordinal rather than by sequence.  The test is case-exact,
+    since the dipeptide probe SS is not a serine.
+    """
+    held = str(resn).strip()
+    if cg is not None:
+        std = cg.standard_residue(held)
+        if std:
+            return THREE2ONE.get(std, "X")
+    return THREE2ONE.get(held.upper(), "X")
 
 
 def _nw(a, b, match=2, mismatch=-1, gap=-2):
@@ -82,8 +103,8 @@ def read_dump(path):
 
 def superpose(A, B, cutoff=2.0, iterations=5):
     import numpy as np
-    sa = "".join(THREE2ONE.get(r[0].upper(), "X") for r in A)
-    sb = "".join(THREE2ONE.get(r[0].upper(), "X") for r in B)
+    sa = "".join(_one(r[0]) for r in A)
+    sb = "".join(_one(r[0]) for r in B)
     pairs = _nw(sa, sb)
     if len(pairs) < 3:
         raise SystemExit("superpose: only %d matched residues" % len(pairs))

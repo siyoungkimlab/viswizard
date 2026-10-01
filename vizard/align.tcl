@@ -58,10 +58,14 @@ proc vizard_fetch {code args} {
 }
 
 proc vizard_matchmaker {mob ref args} {
-    # CA all-atom, BB Martini, GC SIRAH -- one bead per residue either way
-    array set opt {-sel "(protein and name CA) or name BB GC" \
+    # CA all-atom, BB Martini, GC SIRAH -- one bead per residue either way.
+    # Restricted to the protein's own residues: a pocket search fills the box
+    # with dipeptide probes carrying a backbone bead each, and fitting on those
+    # fits on free solvent.
+    set cgpro [expr {[info commands ::CG::protein] ne "" ? [::CG::protein] : "none"}]
+    array set opt [list -sel "(protein and name CA) or (name BB GC and ($cgpro))" \
                    -cutoff 2.0 -iterations 5 \
-                   -apply all -allframes 0}
+                   -apply all -allframes 0]
     array set opt $args
     if {$mob eq "top"} { set mob [molinfo top] }
     if {$ref eq "top"} { set ref [molinfo top] }
@@ -222,7 +226,16 @@ proc vizard_reps {molid args} {
     }
 
     set lig $opt(-ligand)
-    if {$lig eq ""} { set lig "not (protein or nucleic or water or ions)" }
+    if {$lig eq ""} {
+        # VMD's "protein" matches none of a coarse-grained model and its "water"
+        # none of a Martini one, so both are named here as well -- otherwise the
+        # protein and its water come back as the ligand
+        set lig "not (protein or nucleic or water or ions"
+        if {[info commands ::CG::protein] ne ""} {
+            append lig " or ([::CG::protein]) or ([::CG::solvent])"
+        }
+        append lig ")"
+    }
     set ls [atomselect $molid $lig]
     set nlig [$ls num]
     $ls delete

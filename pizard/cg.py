@@ -93,13 +93,37 @@ SOLVENT = ("W", "WF", "WN", "WT4", "ION", "NA", "CL", "SOD", "CLA", "POT",
            "CAL", "MG", "ZN", "NAW", "CLW", "NaW", "ClW")
 
 
-# What the protein's own beads are marked with, in PyMOL's per-atom "custom"
-# field, so they can be selected afterwards.  A residue-name selection cannot
-# do it: PyMOL ignores case in resn, so "resn sS" also matches the dipeptide
-# probe SS, and a box of probes would come out as protein -- the one thing the
-# residue list is there to tell apart.  VMD's resname keeps its case, so
-# ::CG::protein names the residues directly and needs none of this.
-PROTEIN_MARK = "cgprot"
+# One-letter code to the three-letter name PyMOL knows.  SIRAH writes a
+# residue as "s" and its one-letter code, sometimes with a letter for the
+# protonation state after it -- sL, sKa, sSp -- so the code is the second
+# character and the three-letter name follows from it.
+ONE_LETTER = dict(zip(
+    "ACDEFGHIKLMNPQRSTVWY",
+    "ALA CYS ASP GLU PHE GLY HIS ILE LYS LEU MET ASN PRO GLN ARG SER THR VAL "
+    "TRP TYR".split()))
+
+# The histidine tautomers, which have three-letter names of their own.
+SIRAH_EXACT = {"sHd": "HID", "sHe": "HIE"}
+
+
+def standard_residue(resname):
+    """The three-letter name for a SIRAH residue, or None if it is not one.
+
+    PyMOL works out what a residue is from names it knows, and it does not know
+    sL: it will not call that a polymer whatever else it is told, so "polymer"
+    matches none of a SIRAH protein, the GUI's align builds "polymer and name
+    CA" and gets nothing, and align and super fail on an empty selection.  Since
+    sL *is* a leucine, writing it as LEU on the way in is what makes PyMOL treat
+    the model as the protein it is -- the same move as calling its backbone bead
+    CA, one level up.  VMD needs none of this and keeps SIRAH's own names.
+    """
+    held = str(resname).strip()
+    if held in SIRAH_EXACT:
+        return SIRAH_EXACT[held]
+    if (len(held) >= 2 and held[0] == "s" and held[1] in ONE_LETTER
+            and held in SIRAH_RESIDUES):
+        return ONE_LETTER[held[1]]
+    return None
 
 
 def is_protein_residue(resname):

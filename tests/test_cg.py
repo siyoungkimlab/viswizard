@@ -188,3 +188,31 @@ def test_sirah_water_and_ions_are_named_as_sirah_writes_them():
         assert name in cg.SOLVENT
     assert cg.element("NaW") == "Na" and cg.element("ClW") == "Cl"
     assert cg.is_ion("NaW") and cg.is_ion("ClW")
+
+
+def test_a_sirah_residue_is_written_as_the_name_pymol_knows():
+    # PyMOL will not call a residue it does not know a polymer, so "polymer"
+    # matched none of a SIRAH protein and the GUI's align -- which builds
+    # "polymer and name CA" -- had nothing to work with
+    assert cg.standard_residue("sL") == "LEU"
+    assert cg.standard_residue("sK") == "LYS"
+    assert cg.standard_residue("sV") == "VAL"
+    # the histidine tautomers keep theirs; the protonation letter is dropped
+    assert cg.standard_residue("sHe") == "HIE"
+    assert cg.standard_residue("sHd") == "HID"
+    assert cg.standard_residue("sKa") == cg.standard_residue("sKm") == "LYS"
+    assert cg.standard_residue("sSp") == "SER"
+    # and every one of them is a name PyMOL counts as protein
+    for sirah in cg.SIRAH_RESIDUES:
+        std = cg.standard_residue(sirah)
+        assert std is None or std in cg.RESIDUES
+
+
+def test_nothing_else_is_translated():
+    # a probe is not a residue, whatever upper-casing would make of it
+    for probe in ("SS", "ST", "SW", "SY", "WW", "FY"):
+        assert cg.standard_residue(probe) is None
+    # an all-atom residue is already the name PyMOL knows
+    for standard in ("ALA", "LEU", "HIS"):
+        assert cg.standard_residue(standard) is None
+    assert cg.standard_residue("") is None
