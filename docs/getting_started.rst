@@ -129,6 +129,13 @@ Options
        For a coarse-grained model the default names the bead residues instead
        (``W``, ``WT4``, ``ION``, …), since ``water`` and ``solvent`` match none
        of them
+   * - ``--stride``
+     - ``1``
+     - ``1``
+     - to load every Nth frame instead of all of them. Loading, not playback:
+       the frames that are skipped are never read, so a 1000-frame box at
+       ``--stride 10`` starts in a quarter of the time and holds a tenth of the
+       coordinates. ``--step`` is the one for ``--out``
    * - ``--ref``
      - –
      - –

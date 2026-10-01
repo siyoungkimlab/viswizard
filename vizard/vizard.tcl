@@ -42,6 +42,7 @@ Options (all optional; values may contain spaces):
                  (default "(protein and name CA) or name BB GC" -- CA for an
                  all-atom model, BB for Martini, GC for SIRAH)
   --pocket A     pocket residue distance cutoff, angstroms      (default 6)
+  --stride N     load every Nth frame of each trajectory (default 1, all of them)
   --strip SEL    dropped right after loading, since it is never drawn and it
                  is most of the atoms         (default "water or ions";
                  "none" keeps everything).  Crystal structures are left be.
@@ -170,7 +171,7 @@ proc vizard_main {} {
 
     # A misspelt flag would otherwise be dropped in silence and you would get
     # the default selection while believing you had overridden it.
-    set known {ligand lig glue align fit pocket out ref size fps step zoom keep reframe strip files}
+    set known {ligand lig glue align fit pocket out ref size fps step stride zoom keep reframe strip files}
     foreach k [lsort [array names A]] {
         if {[lsearch -exact $known $k] < 0} {
             error "unknown option '--$k'; known options are --[join [lsort $known] { --}]"
@@ -191,6 +192,15 @@ proc vizard_main {} {
     if {[info exists A(align)] && $A(align) ne ""} { set alignsel $A(align) }
     set stripsel "water or ions"
     if {[info exists A(strip)] && $A(strip) ne ""} { set stripsel $A(strip) }
+    # A misspelt value would otherwise reach "mol addfile step", which takes it
+    # without complaint and loads something other than what you asked for.
+    set stride 1
+    if {[info exists A(stride)] && $A(stride) ne ""} {
+        if {![string is integer -strict $A(stride)] || $A(stride) < 1} {
+            error "--stride must be a positive whole number, got '$A(stride)'"
+        }
+        set stride $A(stride)
+    }
     set pocketcut 6.0
     if {[info exists A(pocket)] && $A(pocket) ne ""} {
         if {![string is double -strict $A(pocket)] || $A(pocket) <= 0} {
@@ -227,7 +237,9 @@ proc vizard_main {} {
             } else {
                 error "no such file, and '$top' is not a 4-character PDB id: $top"
             }
-            foreach t $trajs { mol addfile $t waitfor all $m }
+            # step loads every Nth frame: a long run at a short interval holds
+            # frames that say the same thing, and every one of them is memory
+            foreach t $trajs { mol addfile $t step $stride waitfor all $m }
             # frame 0 is the topology's own coordinates; drop it when a
             # trajectory was loaded on top
             if {[llength $trajs] && [molinfo $m get numframes] > 1} {
