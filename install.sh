@@ -143,7 +143,10 @@ strip_block() {   # strip_block <file> <marker>
 
 strip_block "$RC" viswizard
 { echo "# >>> viswizard >>>"
-  for f in glue movie formats align view; do echo "source $VIZ/vizard/$f.tcl"; done
+  # the same list vizard.tcl sources, so a plain VMD session has the in-session
+  # commands the docs promise: browse, cgelem, cgbonds, and the ::CG:: tables
+  # that align.tcl and the reps ask for when the model is coarse-grained
+  for f in glue movie formats align view browse cg; do echo "source $VIZ/vizard/$f.tcl"; done
   echo "# <<< viswizard <<<"
 } >> "$RC"
 echo "refreshed: $RC"
