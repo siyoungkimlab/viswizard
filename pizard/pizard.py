@@ -215,6 +215,7 @@ def main(argv=None):
     import cg as _cg
     cg_objs = set()
     cg_solute = {}
+    cg_prot = {}
     for obj in objs:
         beads = set()
         # text_type holds the bead's own name when the model came in through
@@ -225,6 +226,23 @@ def main(argv=None):
             continue
         cg_objs.add(obj)
         cg_solute[obj] = _cg.solute_selection(beads, rename=True)
+        # What the protein is, for this object.  PyMOL sets the polymer flag
+        # from residue names it knows, so marking a bead as non-hetatm makes a
+        # Martini residue (ALA, LEU) polymer and does nothing for a SIRAH one
+        # (sA, sL, sHe) -- "polymer" matches none of a SIRAH protein.  Mark the
+        # residues instead, through a Python expression that keeps their case:
+        # PyMOL ignores case in resn, so "resn sS" would take the dipeptide
+        # probe SS for a serine and a box of probes would come out as protein.
+        cmd.alter(obj, "custom = MARK if protein(resn) else custom",
+                  space={"MARK": _cg.PROTEIN_MARK,
+                         "protein": _cg.is_protein_residue})
+        marked = "custom %s" % _cg.PROTEIN_MARK
+        if cmd.count_atoms("(%s) and (%s)" % (obj, marked)):
+            cg_prot[obj] = marked
+        else:
+            # no residue the reader knows: a lipid-only box, say.  The beads
+            # themselves are all there is, probes and all.
+            cg_prot[obj] = cg_solute[obj]
         # The DMS and MAE readers do this while reading the file, which is the
         # only moment align and super can be rescued -- see cg.pymol_atom --
         # and they leave the bead's own name in text_type to say they did.
@@ -233,7 +251,7 @@ def main(argv=None):
             print("pizard: %-16s coarse-grained: %d beads, %d read as a"
                   " protein (%d backbone)"
                   % (obj, cmd.count_atoms(obj),
-                     cmd.count_atoms("(%s) and polymer" % obj),
+                     cmd.count_atoms("(%s) and (%s)" % (obj, cg_prot[obj])),
                      cmd.count_atoms("(%s) and name %s" % (obj, _cg.CA))))
             continue
         # A file PyMOL read itself, a Martini PDB or GRO, is still worth
@@ -245,11 +263,24 @@ def main(argv=None):
         n = 0
         for bead, elem in sorted(_cg.elements(beads).items()):
             n += cmd.alter("(%s) and name %s" % (obj, bead), "elem=%r" % elem)
-        nb = cmd.alter("(%s) and %s" % (obj, _cg.backbone_selection()),
+        nb = cmd.alter("(%s) and %s and (custom %s)"
+                       % (obj, _cg.backbone_selection(), _cg.PROTEIN_MARK),
                        "name=%r" % _cg.CA)
         cmd.sort(obj)
         print("pizard: %-16s coarse-grained: gave %d beads their element,"
               " renamed %d backbone beads %s" % (obj, n, nb, _cg.CA))
+
+    # PyMOL's "organic" means carbon and not polymer, and a coarse-grained
+    # protein is not polymer -- a SIRAH one never is, since PyMOL does not know
+    # a residue called sL -- so the default ligand selection matches the protein
+    # itself, and the whole model comes out as ligand and pocket.  Take the
+    # protein out of it.  A --ligand given by hand is left exactly as given: a
+    # peptide ligand is made of the same residues, and naming it is how you say
+    # you want it.
+    if cg_objs and o.ligand == DEFAULT_LIGAND:
+        o.ligand = "(%s) and not (custom %s)" % (o.ligand, _cg.PROTEIN_MARK)
+        print("pizard: %-16s coarse-grained: the ligand leaves out the protein's"
+              " own beads" % "")
 
     # Waters and ions are never drawn, and they are most of the atoms: dropping
     # them here makes the gluing, the memory and every later redraw smaller.
@@ -319,12 +350,10 @@ def main(argv=None):
         if o.glue:
             g = gluesel
         elif name in cg_objs:
-            # the reader marks the beads of an amino acid as polymer, so a
-            # coarse-grained protein can be named the same way as any other.
-            # Failing that -- a model PyMOL read itself -- the beads are all
-            # there is to name, and that includes any probe's beads.
-            solute = cg_solute.get(name, "")
-            g = "polymer" if cmd.count_atoms("(%s) and polymer" % name) else solute
+            # the protein's own beads -- by the polymer flag where PyMOL set
+            # it, by residue name where it would not, and only as a last
+            # resort every bead, which drags a box of probes in with it
+            g = cg_prot.get(name, "") or cg_solute.get(name, "")
             if g and nl and not cosolvent:
                 g = "(%s) or (%s)" % (g, o.ligand)
             if g:
@@ -444,7 +473,7 @@ def main(argv=None):
         has_lig = cmd.count_atoms(lig) > 0
         # polymer is empty for a coarse-grained model, so measure the pocket
         # from its beads instead -- otherwise there is no pocket at all
-        around = cg_solute.get(name) or "polymer"
+        around = cg_prot.get(name) or cg_solute.get(name) or "polymer"
         pocket = "byres ((%s) and (%s) within %g of (%s))" % (
             name, around, o.pocket, lig)
 

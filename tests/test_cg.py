@@ -164,3 +164,27 @@ def test_a_sirah_residue_is_protein_and_a_probe_is_not():
 
     assert not {r.upper() for r in cg.SIRAH_RESIDUES} & set(cg.SOLVENT)
     assert not set(cg.SIRAH_RESIDUES) & cg.RESIDUES
+
+
+def test_a_sirah_residue_is_told_from_a_probe_by_its_case():
+    # the reason this is a Python test and not a selection: PyMOL ignores case
+    # in resn, so "resn sS" matches the dipeptide probe SS as well, and a box of
+    # probes would come out as protein.  VMD's resname keeps its case.
+    assert cg.is_protein_residue("sS") and not cg.is_protein_residue("SS")
+    assert cg.is_protein_residue("sT") and not cg.is_protein_residue("ST")
+    assert cg.is_protein_residue("sW") and not cg.is_protein_residue("SW")
+    assert cg.is_protein_residue("sY") and not cg.is_protein_residue("SY")
+    # a standard residue is matched whatever its case; a probe never is
+    assert cg.is_protein_residue("ALA") and cg.is_protein_residue("ala")
+    for probe in ("WW", "FY", "RQ", "EE"):
+        assert not cg.is_protein_residue(probe)
+        assert cg.pymol_atom("GC", probe) == ("GC", "C", 1)
+
+
+def test_sirah_water_and_ions_are_named_as_sirah_writes_them():
+    # VMD matches a resname with its case, so the upper-cased spelling alone
+    # left SIRAH's 175 ion beads in place
+    for name in ("NaW", "ClW", "NAW", "CLW", "WT4"):
+        assert name in cg.SOLVENT
+    assert cg.element("NaW") == "Na" and cg.element("ClW") == "Cl"
+    assert cg.is_ion("NaW") and cg.is_ion("ClW")

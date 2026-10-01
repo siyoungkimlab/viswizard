@@ -176,6 +176,31 @@ beside the element tables in ``pizard/cg.py`` and ``vizard/cg.tcl``. Everything
 else in the model is kept: the probes and the lipids are not solvent, and
 ``inorganic`` would have taken them too.
 
+Telling the protein apart
+-------------------------
+
+PyMOL decides what is polymer from residue names it knows. A Martini residue is
+``ALA`` or ``LEU``, so marking its beads as non-hetatm is enough and ``polymer``
+selects the peptide. A SIRAH residue is ``sA``, ``sL``, ``sHe`` — its own
+naming — and PyMOL will not call that a polymer whatever else it is told, so
+``polymer`` matches none of a SIRAH protein and ``organic``, which means carbon
+and not polymer, matches all of it. Left there, the protein came out as its own
+ligand: the whole model drawn as sticks, every bead glued, and the probes of a
+pocket search placed with it rather than wrapped around it.
+
+So the protein's beads are marked, by residue, in PyMOL's per-atom ``custom``
+field, and ``custom cgprot`` is what the glue, the pocket and the default
+ligand are then written against. The marking runs as a Python expression over
+the atoms rather than as a selection, because PyMOL ignores case in ``resn``:
+``resn sS`` matches the dipeptide probe ``SS`` as well as a SIRAH serine, and a
+box of probes would come out as protein — the one thing the residue list is
+there to tell apart. VMD keeps the case of a ``resname``, so ``::CG::protein``
+names the residues directly and needs none of this.
+
+A ``--ligand`` you give by hand is left exactly as given. The protein is only
+subtracted from the default, since a peptide ligand is made of the same
+residues as the protein, and naming it is how you say you want it.
+
 Periodic boundaries
 -------------------
 

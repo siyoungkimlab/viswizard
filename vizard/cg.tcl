@@ -18,7 +18,7 @@ set ::vizard_cg_loaded 1
 namespace eval ::CG:: {}
 
 # ion beads, which VMD would otherwise leave as element X
-array set ::CG::IONS {NA Na SOD Na CL Cl CLA Cl K K POT K CA Ca CAL Ca MG Mg ZN Zn CES Cs CS Cs}
+array set ::CG::IONS {NA Na SOD Na CL Cl CLA Cl K K POT K CA Ca CAL Ca MG Mg ZN Zn CES Cs CS Cs NAW Na CLW Cl}
 # Martini beads whose name says nothing about the element
 array set ::CG::EXACT {BB C PO4 P NC3 N CNO N}
 # prefix -> element, first match winning
@@ -66,7 +66,9 @@ proc ::CG::element {name} {
 
 # the residue names coarse-grained solvent and ions come under: VMD's "water"
 # matches none of them, so without this a Martini box strips almost nothing
-set ::CG::SOLVENT {W WF WN WT4 ION NA CL SOD CLA POT CAL MG ZN NAW CLW}
+# VMD matches a resname with its case, so SIRAH's NaW and ClW are listed as
+# SIRAH writes them as well as upper-cased
+set ::CG::SOLVENT {W WF WN WT4 ION NA CL SOD CLA POT CAL MG ZN NAW CLW NaW ClW}
 
 proc ::CG::solvent {} {
     variable SOLVENT

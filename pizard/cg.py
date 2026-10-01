@@ -21,6 +21,7 @@ Nothing here imports pymol, so it can be tested on its own.
 IONS = {
     "NA": "Na", "SOD": "Na", "CL": "Cl", "CLA": "Cl", "K": "K", "POT": "K",
     "CA": "Ca", "CAL": "Ca", "MG": "Mg", "ZN": "Zn", "CES": "Cs", "CS": "Cs",
+    "NAW": "Na", "CLW": "Cl",      # SIRAH's ions, each with its hydration shell
 }
 
 # Martini beads whose name says nothing about the element.
@@ -86,8 +87,32 @@ SIRAH_RESIDUES = set(
 # called W -- so without this list a 7266-bead box strips 8 atoms and keeps
 # 5665 waters.  SIRAH's water is WT4 and its ions NaW/ClW; an ion bead often
 # arrives under a residue called ION, or under its own name.
+# VMD matches a resname with its case, so SIRAH's NaW and ClW are listed as
+# SIRAH writes them as well as upper-cased; PyMOL ignores case either way.
 SOLVENT = ("W", "WF", "WN", "WT4", "ION", "NA", "CL", "SOD", "CLA", "POT",
-           "CAL", "MG", "ZN", "NAW", "CLW")
+           "CAL", "MG", "ZN", "NAW", "CLW", "NaW", "ClW")
+
+
+# What the protein's own beads are marked with, in PyMOL's per-atom "custom"
+# field, so they can be selected afterwards.  A residue-name selection cannot
+# do it: PyMOL ignores case in resn, so "resn sS" also matches the dipeptide
+# probe SS, and a box of probes would come out as protein -- the one thing the
+# residue list is there to tell apart.  VMD's resname keeps its case, so
+# ::CG::protein names the residues directly and needs none of this.
+PROTEIN_MARK = "cgprot"
+
+
+def is_protein_residue(resname):
+    """Is this residue the protein's own?  Case-exact, and it has to be.
+
+    PyMOL will not call a residue it does not know a polymer, whatever else it
+    is told: marking a bead as non-hetatm is enough for a Martini model, whose
+    residues are ALA, LEU and the rest, and does nothing for a SIRAH one, whose
+    residues are sA, sL, sHe.  So "polymer" matches none of a SIRAH protein,
+    and the residue name is what is left to go on.
+    """
+    held = str(resname).strip()
+    return held.upper() in RESIDUES or held in SIRAH_RESIDUES
 
 
 def solvent_selection(pymol=True):
@@ -111,8 +136,7 @@ def pymol_atom(name, resname=""):
     elem = element(name)
     if not elem:
         return None
-    held = str(resname).strip()
-    protein = held.upper() in RESIDUES or held in SIRAH_RESIDUES
+    protein = is_protein_residue(resname)
     n = str(name).strip().upper()
     return (CA if protein and n in BACKBONE else name, elem, 0 if protein else 1)
 

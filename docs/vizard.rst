@@ -216,6 +216,17 @@ every wrap has that boundary somewhere, and with free solvent diffusing ~18 Å
 between saved frames a fifth of it is near one. What is gone is the whole
 cloud moving at once.
 
+Reading DMS and CMS
+-------------------
+
+VMD has no DMS plugin, so ``vizard`` converts one to MAE on the way in and
+caches the result under ``~/.viswizard_cache``. The cache is keyed on the
+file's whole path, not its name: a pocket search holds a
+``martini3/…/solvated.dms`` and a ``sirah/…/solvated.dms``, and one entry for
+both served whichever had been converted last — silently, since the staleness
+check only compares times and the older file looks up to date against an entry
+written for its namesake.
+
 Crystal structures
 ------------------
 
