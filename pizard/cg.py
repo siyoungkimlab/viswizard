@@ -71,6 +71,15 @@ RESIDUES = set(
     "ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE PRO SER THR TRP "
     "TYR VAL HID HIE HIP HISD HISE HISH CYX CYM ACE NME NMA".split())
 
+# SIRAH names its residues for itself -- sL, sK, sHe -- so a SIRAH protein
+# matches nothing above and arrives as no protein at all: no backbone to look
+# at.  These are matched with their own case, not upper-cased like the rest,
+# because upper-casing them would read sS, sT, sW and sY as the dipeptide
+# probes SS, ST, SW and SY, and a box of probes would come out as protein.
+SIRAH_RESIDUES = set(
+    "sA sC sCp sD sDh sE sEh sF sG sHd sHe sI sK sKa sKm sL sM sN sP sQ sR sS "
+    "sSp sT sTp sV sW sX sY sYp sZ".split())
+
 
 # The residue names coarse-grained solvent and ions come under.  Neither VMD's
 # "water" nor PyMOL's "solvent" matches a Martini water bead -- the residue is
@@ -102,7 +111,8 @@ def pymol_atom(name, resname=""):
     elem = element(name)
     if not elem:
         return None
-    protein = str(resname).strip().upper() in RESIDUES
+    held = str(resname).strip()
+    protein = held.upper() in RESIDUES or held in SIRAH_RESIDUES
     n = str(name).strip().upper()
     return (CA if protein and n in BACKBONE else name, elem, 0 if protein else 1)
 

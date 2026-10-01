@@ -34,6 +34,12 @@ set ::CG::MARKERS {BB GC GN SC1}
 # from a box of dipeptide probes (WW, FY, EE), whose names no viewer knows.
 set ::CG::RESIDUES {ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE
     PRO SER THR TRP TYR VAL HID HIE HIP HISD HISE HISH CYX CYM ACE NME NMA}
+# SIRAH names its residues for itself -- sL, sK, sHe -- so a SIRAH protein
+# matches none of the above.  Their case is their own: upper-cased, sS, sT, sW
+# and sY are the dipeptide probes SS, ST, SW and SY, and a box of probes would
+# come out as protein.
+set ::CG::SIRAH_RESIDUES {sA sC sCp sD sDh sE sEh sF sG sHd sHe sI sK sKa sKm
+    sL sM sN sP sQ sR sS sSp sT sTp sV sW sX sY sYp sZ}
 # atomic numbers, so the element and the number never disagree
 array set ::CG::Z {H 1 C 6 N 7 O 8 Na 11 Mg 12 P 15 S 16 Cl 17 K 19 Ca 20 Zn 30 Cs 55}
 
@@ -71,7 +77,8 @@ proc ::CG::solvent {} {
 # flag, which pizard's readers set from the same list.
 proc ::CG::protein {} {
     variable RESIDUES
-    return "resname [join $RESIDUES { }]"
+    variable SIRAH_RESIDUES
+    return "resname [join [concat $RESIDUES $SIRAH_RESIDUES] { }]"
 }
 
 proc ::CG::coarse_grained {molid} {
