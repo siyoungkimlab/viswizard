@@ -91,6 +91,8 @@ Options (all optional):
                  and cached).  The trajectory is put onto it with cealign,
                  which is structure-based, so numbering need not match.
   --object NAME  object name to load into          (default "sys")
+  --stride N     load every Nth frame of each trajectory (default 1, all of
+                 them).  Loading, not rendering: --step is the one for --out
   --strip SEL    thrown away right after loading, since it is never drawn
                  and it is most of the atoms  (default "solvent or inorganic"
                  -- waters and ions; "none" keeps everything)
@@ -259,6 +261,10 @@ def main(argv=None):
     p.add_argument("--fps", dest="fps", default=24, help="with --out")
     p.add_argument("--step", dest="step", default=1,
                    help="with --out, render every Nth state")
+    p.add_argument("--stride", dest="stride", type=int, default=1,
+                   help="load every Nth frame of each trajectory (1: all of them). "
+                        "A long run at a short interval holds frames that say the "
+                        "same thing, and every one of them is memory")
     p.add_argument("--ray", dest="ray", default=1, help="with --out, ray trace")
     p.add_argument("--keep", dest="keep", default=0,
                    help="with --out, keep the PNG frames")
@@ -321,7 +327,8 @@ def main(argv=None):
         if created:
             name = created[0]
         for t in trajs:
-            cmd.load_traj(t, name, state=1)   # state=1 overwrites topology frame
+            # state=1 overwrites the topology frame; interval loads every Nth
+            cmd.load_traj(t, name, state=1, interval=max(1, int(o.stride)))
         _drop_coordless(name)
         objs.append(name)
         print("pizard: %-16s %6d atoms, %3d states" %

@@ -244,6 +244,20 @@ cell with any angle other than 90° is skipped the same way.
 Speed
 -----
 
+A long run at a short save interval holds frames that say the same thing:
+
+.. code-block:: bash
+
+   vizard sys.pdb traj.dcd --stride 10
+
+``--stride`` is read at load time: the skipped frames are never read, so it
+makes the start-up, the gluing and every later redraw smaller in one go. On the
+47k-atom box above, 1000 frames load and glue in 1.9 s and ``--stride 10``
+does its hundred in 0.5 s. It is not the same flag as ``--step``, which
+renders every Nth of the states already loaded and only applies to ``--out``;
+the two compose, so ``--stride 10 --step 5`` renders every fiftieth frame of the run.
+
+
 Shadows and ambient occlusion are recomputed on every redraw, so on a big
 enough system they cost something. vizard turns them on for the look;
 ``ao off`` drops them when the pace matters more than the picture, and

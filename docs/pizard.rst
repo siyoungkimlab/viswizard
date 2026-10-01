@@ -184,6 +184,20 @@ alone throughout, so they keep stepping trajectory frames.
 Speed
 -----
 
+A long run at a short save interval holds frames that say the same thing:
+
+.. code-block:: bash
+
+   pizard sys.pdb traj.dcd --stride 10
+
+``--stride`` is read at load time: the skipped frames are never read, so it
+makes the start-up, the gluing and every later redraw smaller in one go. On the
+47k-atom box above, 1000 frames load and glue in 1.5 s and ``--stride 10``
+does its hundred in 0.4 s. It is not the same flag as ``--step``, which
+renders every Nth of the states already loaded and only applies to ``--out``;
+the two compose, so ``--stride 10 --step 5`` renders every fiftieth frame of the run.
+
+
 Waters and ions are never drawn and are most of the atoms, so they are dropped
 as soon as the trajectory is loaded — ``--strip`` decides what goes, and
 ``--strip none`` keeps everything. On a 47k-atom box with 1000 states that
