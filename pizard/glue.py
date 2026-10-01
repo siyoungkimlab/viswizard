@@ -109,7 +109,7 @@ class _Topology:
     whose molecules are already whole skips the step.
     """
 
-    def __init__(self, nat, start, nbr, gidx):
+    def __init__(self, nat, start, nbr, gidx, fidx=None):
         st, nb = start.tolist(), nbr.tolist()
         label, parent = [-1] * nat, [-1] * nat
         ncomp = 0
@@ -156,7 +156,23 @@ class _Topology:
         self.gcount = np.bincount(self.gslot, minlength=len(self.gcomps)).astype(float)
         self.glued = np.isin(labels, self.gcomps)    # every atom of every glued comp
         self.count = np.bincount(labels, minlength=ncomp).astype(float)
-        self.nothers = ncomp - len(self.gcomps)
+
+        # The protein of interest: the whole molecules the fit selection sits
+        # on, not the fit atoms themselves.  Everything else is wrapped around
+        # its centre and it is centred in the box, so the fit can be a single
+        # loop without dragging that reference off into a corner of the
+        # protein.  It is also not the glued set's own centre, which a few
+        # hundred co-solvent molecules would outvote.
+        if fidx is None or not len(fidx):
+            self.acomps = self.gcomps
+        else:
+            self.acomps = np.unique(labels[fidx])
+        self.anchor = np.isin(labels, self.acomps)
+        if not self.anchor.any():
+            self.anchor = self.glued
+        # anchors are the reference, so they are never wrapped onto it
+        self.fixed = np.union1d(self.gcomps, self.acomps)
+        self.nothers = ncomp - len(self.fixed)
 
 
 def _sums(X, idx, n):
@@ -193,13 +209,21 @@ def _glue_block(P, L, t, wrap=1):
         if sh.any():
             P += sh[:, t.labels]
 
-    # 3. wrap everything else -- never the glued set, or 2 is undone
-    if wrap and t.nothers:
-        gcen = P[:, t.glued].mean(axis=1)
-        cen = _sums(P, t.labels, t.ncomp) / t.count[None, :, None]
-        sh = -np.round((cen - gcen[:, None, :]) / Lb) * Lb
-        sh[:, t.gcomps] = 0.0
-        P += sh[:, t.labels]
+    # 3. wrap every other molecule onto its image nearest the protein -- never
+    #    the glued set or the anchor, or 2 is undone
+    if wrap:
+        acen = P[:, t.anchor].mean(axis=1)
+        if t.nothers:
+            cen = _sums(P, t.labels, t.ncomp) / t.count[None, :, None]
+            sh = -np.round((cen - acen[:, None, :]) / Lb) * Lb
+            sh[:, t.fixed] = 0.0
+            P += sh[:, t.labels]
+
+        # 4. put the protein in the middle of the box.  Everything else is now
+        #    within half a box of it, so this is what leaves the whole system
+        #    inside the cell -- and what stops the view drifting, since the fit
+        #    that follows carries every state onto this same frame.
+        P += (L / 2.0 - acen)[:, None, :]
     return P
 
 
@@ -293,14 +317,15 @@ def glue_traj(glue="polymer", fit="(name CA and elem C) or (polymer and name BB+
     gidx = _indices("(%s) and (%s)" % (obj, glue))
     if not len(gidx):
         _fail("glue selection matched nothing")
-    t = _Topology(nat, start, nbr, gidx)
-    if not quiet:
-        print("glue: %d atoms in %d components; %d other molecules"
-              % (len(gidx), len(t.gcomps), t.nothers))
-
     fit_idx = _indices("(%s) and (%s)" % (obj, fit))
     if len(fit_idx) < 3:
         _fail("fit selection needs at least 3 atoms")
+
+    t = _Topology(nat, start, nbr, gidx, fit_idx)
+    if not quiet:
+        print("glue: %d atoms in %d components; %d other molecules;"
+              " centred on %d atoms" % (len(gidx), len(t.gcomps), t.nothers,
+                                        int(t.anchor.sum())))
 
     nstates = cmd.count_states(obj)
     cells = [_cell(obj, st) for st in range(1, nstates + 1)]

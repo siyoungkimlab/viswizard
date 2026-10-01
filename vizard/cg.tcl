@@ -28,6 +28,12 @@ set ::CG::SIRAH_FIRST BG
 set ::CG::SIRAH_ELEMENTS CNOSP
 # any of these means the model is coarse-grained
 set ::CG::MARKERS {BB GC GN SC1}
+# the residues whose beads are protein.  VMD's "protein" wants a full
+# N/CA/C/O backbone and matches none of a coarse-grained model, so the residue
+# name is what is left to go on -- and it is what tells the protein's own beads
+# from a box of dipeptide probes (WW, FY, EE), whose names no viewer knows.
+set ::CG::RESIDUES {ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE
+    PRO SER THR TRP TYR VAL HID HIE HIP HISD HISE HISH CYX CYM ACE NME NMA}
 # atomic numbers, so the element and the number never disagree
 array set ::CG::Z {H 1 C 6 N 7 O 8 Na 11 Mg 12 P 15 S 16 Cl 17 K 19 Ca 20 Zn 30 Cs 55}
 
@@ -50,6 +56,13 @@ proc ::CG::element {name} {
         if {[string first $prefix $n] == 0} { return $elem }
     }
     return ""
+}
+
+# A selection for the protein's own beads: the analogue of PyMOL's polymer
+# flag, which pizard's readers set from the same list.
+proc ::CG::protein {} {
+    variable RESIDUES
+    return "resname [join $RESIDUES { }]"
 }
 
 proc ::CG::coarse_grained {molid} {

@@ -57,6 +57,9 @@ DEFAULT_LIGAND = "organic and not resn ACE+NMA+NME"
 # 420 probes diffusing through the box leaves the protein wandering.
 DEFAULT_FIT = "(name CA and elem C) or (polymer and name BB+GC)"
 
+# More ligand molecules than this and it is co-solvent, not a ligand.
+COSOLVENT = 8
+
 # Thrown away right after loading: waters and ions, which are never drawn.
 DEFAULT_STRIP = "solvent or inorganic"
 
@@ -273,6 +276,18 @@ def main(argv=None):
                       % (name, n, o.strip))
 
     gluesel = o.glue or "polymer or (%s)" % o.ligand
+
+    # A ligand of a few molecules is held together with the protein across the
+    # boundary; a few hundred of them are not a ligand but co-solvent -- the
+    # dipeptide probes of a pocket search, say -- and holding those with the
+    # protein means letting 420 molecules outvote it over where the cluster
+    # goes, which is how they come out on one side of the box in one frame and
+    # the other side in the next.  Co-solvent is wrapped around the protein
+    # instead, like water, which is stable and is what it is for.
+    def _molecules(sel):
+        out = set()
+        cmd.iterate(sel, "out.add((segi, chain, resi))", space={"out": out})
+        return len(out)
     print("pizard: ligand '%s'   glue '%s'   align '%s'"
           % (o.ligand, gluesel, o.align))
 
@@ -280,6 +295,12 @@ def main(argv=None):
     fits = {}
     for name in objs:
         nl = cmd.count_atoms("(%s) and (%s)" % (name, o.ligand))
+        nlm = _molecules("(%s) and (%s)" % (name, o.ligand)) if nl else 0
+        cosolvent = nlm > COSOLVENT
+        if cosolvent:
+            print("pizard: %-16s %d ligand molecules -- co-solvent, not a"
+                  " ligand: wrapped around the protein, not held with it"
+                  % (name, nlm))
         fit = o.align
         na = cmd.count_atoms("(%s) and (%s)" % (name, fit))
         if na < 3 and fit == DEFAULT_FIT and name in cg_objs:
@@ -301,19 +322,19 @@ def main(argv=None):
         if o.glue:
             g = gluesel
         elif name in cg_objs:
-            # "polymer" matches nothing in a coarse-grained model -- PyMOL
-            # sets that flag when the file is read, from names it does not
-            # know -- so the beads themselves are what there is to glue, and
-            # the ligand goes with them as it would for an all-atom model.
+            # the reader marks the beads of an amino acid as polymer, so a
+            # coarse-grained protein can be named the same way as any other.
+            # Failing that -- a model PyMOL read itself -- the beads are all
+            # there is to name, and that includes any probe's beads.
             solute = cg_solute.get(name, "")
-            g = solute or "polymer"
-            if solute and nl:
-                g = "(%s) or (%s)" % (solute, o.ligand)
-            if solute:
+            g = "polymer" if cmd.count_atoms("(%s) and polymer" % name) else solute
+            if g and nl and not cosolvent:
+                g = "(%s) or (%s)" % (g, o.ligand)
+            if g:
                 print("pizard: %-16s coarse-grained: gluing %s%s"
-                      % (name, solute, " with the ligand" if nl else ""))
+                      % (name, g, " with the ligand" if nl and not cosolvent else ""))
         else:
-            g = gluesel if nl else "polymer"
+            g = gluesel if (nl and not cosolvent) else "polymer"
             if not nl:
                 print("pizard: %s -- no ligand matched; gluing polymer only" % name)
         if not g or not cmd.count_atoms("(%s) and (%s)" % (name, g)):

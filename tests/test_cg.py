@@ -69,6 +69,7 @@ def test_tcl_and_python_tables_agree():
     prefix = _tcl_table("PREFIX")
     assert tuple(zip(prefix[::2], prefix[1::2])) == cg.PREFIX
     assert _tcl_table("MARKERS") == list(cg.MARKERS)
+    assert sorted(_tcl_table("RESIDUES")) == sorted(cg.RESIDUES)
 
 
 def test_water_and_ion_beads_are_told_apart():

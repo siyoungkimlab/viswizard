@@ -158,6 +158,41 @@ whole" has nothing to work with — each of those beads is its own fragment. And
 Martini water is ``resname W``, which neither VMD's ``water`` nor PyMOL's ``solvent`` matches, so
 ``--strip`` leaves it in place unless you name it: ``--strip "water or ions or resname W WF"``.
 
+Periodic boundaries
+-------------------
+
+A trajectory arrives with every molecule placed wherever the periodic box put
+it, so the protein sits in a corner one frame and the ligand across the box
+the next. Four steps, in this order:
+
+1. every molecule is made whole, by walking its bonds rather than by distance;
+2. the protein and anything named by ``--glue`` are placed on their jointly
+   best images, so a dimer straddling the boundary comes back together;
+3. every other molecule moves as a whole onto the image nearest the protein;
+4. the protein is put in the middle of the box, which leaves everything else
+   inside the cell, and the fit then carries every frame onto that same frame
+   of reference.
+
+The protein here is the whole molecule the fit selection sits on, not the fit
+atoms, so ``--align`` can name one loop without pulling the centre into a
+corner of the protein — and not the centre of everything glued, which a few
+hundred co-solvent molecules would outvote.
+
+That last point is why a ligand of more than 8 molecules is treated as
+co-solvent: the dipeptide probes of a pocket search are not a ligand, and
+placing 420 of them *with* the protein let them decide where the cluster went.
+On a 3lnz Martini box their centre sat 39 Å off the protein, swinging up to
+58 Å; wrapped around it instead, it stays within 5.5 Å, which is what 420
+molecules of noise looks like. Their own frame-to-frame image flips halved.
+
+Naming ``--glue`` yourself switches that off and glues exactly what you say;
+``set vizard_cosolvent 40`` moves the line instead.
+
+A molecule that happens to sit half a box away still flips between frames —
+every wrap has that boundary somewhere, and with free solvent diffusing ~18 Å
+between saved frames a fifth of it is near one. What is gone is the whole
+cloud moving at once.
+
 Crystal structures
 ------------------
 

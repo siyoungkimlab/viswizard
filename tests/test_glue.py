@@ -41,9 +41,10 @@ def _frames(xyz, n=12, seed=1):
     return truth, split, cells
 
 
-def _topology(xyz, bonds, gidx):
+def _topology(xyz, bonds, gidx, fidx=None):
     start, nbr = glue._csr(len(xyz), bonds)
-    return glue._Topology(len(xyz), start, nbr, gidx)
+    return glue._Topology(len(xyz), start, nbr, gidx,
+                          np.arange(NA) if fidx is None else fidx)
 
 
 def _bond_lengths(x, bonds):
@@ -80,10 +81,10 @@ def test_split_system_is_whole_glued_and_wrapped():
         assert np.allclose(_bond_lengths(P[f], bonds), _bond_lengths(truth[f], bonds))
         # the two chains are back in contact, not a box apart
         assert np.isclose(_min_ab(P[f]), _min_ab(truth[f]))
-        # every water sits within half a box of the glued pair
-        gcen = P[f][:NA + NB].mean(0)
+        # every water sits within half a box of the protein it is wrapped around
+        acen = P[f][:NA].mean(0)
         wcen = P[f][NA + NB:].reshape(NW, 3, 3).mean(1)
-        assert (np.abs(wcen - gcen) <= cells[f] / 2 + 1e-9).all()
+        assert (np.abs(wcen - acen) <= cells[f] / 2 + 1e-9).all()
 
 
 def test_threads_give_the_serial_result_in_state_order():
@@ -138,3 +139,42 @@ def test_a_triclinic_md_box_is_reported_as_such():
 def test_no_cell_and_placeholder_cells_are_skipped():
     assert glue._cell_kind(None) == "none"
     assert glue._cell_kind([1.0, 1.0, 1.0, 90.0, 90.0, 90.0, "P 1"]) == "none"
+
+
+def test_the_protein_is_centred_and_everything_lands_in_the_box():
+    # the fit selection is chain A, so chain A's own molecule is the reference:
+    # it ends up in the middle of the cell and the rest around it
+    xyz, bonds, gidx = _system()
+    _, split, cells = _frames(xyz, n=9)
+    t = _topology(xyz, bonds, gidx)
+    P = glue._glue_block(split.copy(), np.array(cells), t)
+    for f, L in enumerate(cells):
+        assert np.allclose(P[f][:NA].mean(0), L / 2)
+        # and nothing is left outside the cell, molecules whole as they are
+        assert (P[f] > -L / 2).all() and (P[f] < 1.5 * L).all()
+        cen = P[f][NA + NB:].reshape(NW, 3, 3).mean(1)
+        assert (cen >= 0).all() and (cen <= L).all()
+
+
+def test_the_reference_is_the_whole_molecule_the_fit_sits_on():
+    # a fit on five atoms of chain A still centres on all of chain A, so a
+    # loop-sized --align cannot drag the reference into a corner
+    xyz, bonds, gidx = _system()
+    _, split, cells = _frames(xyz, n=4)
+    whole = _topology(xyz, bonds, gidx)
+    loop = _topology(xyz, bonds, gidx, fidx=np.arange(5))
+    assert whole.anchor.sum() == loop.anchor.sum() == NA
+    a = glue._glue_block(split.copy(), np.array(cells), whole)
+    b = glue._glue_block(split.copy(), np.array(cells), loop)
+    assert np.allclose(a, b)
+
+
+def test_co_solvent_is_wrapped_rather_than_placed_with_the_glued_set():
+    # 40 three-atom molecules named by the glue selection: placing them jointly
+    # with one small protein lets them outvote it, so they are wrapped instead
+    xyz, bonds, gidx = _system()
+    _, split, cells = _frames(xyz, n=6)
+    t = _topology(xyz, bonds, np.arange(len(xyz)))      # glue = everything
+    P = glue._glue_block(split.copy(), np.array(cells), t)
+    for f, L in enumerate(cells):
+        assert np.allclose(P[f][:NA].mean(0), L / 2)

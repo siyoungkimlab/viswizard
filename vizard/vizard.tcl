@@ -99,6 +99,10 @@ ligand, so several structures stay distinguishable.
 }
 }
 
+# More ligand molecules than this and it is co-solvent, not a ligand: it gets
+# wrapped around the protein rather than held together with it.
+set ::vizard_cosolvent 8
+
 proc vizard_main {} {
     global argv env
 
@@ -178,8 +182,11 @@ proc vizard_main {} {
     set gluesel "protein or ($ligsel)"
     if {[info exists A(glue)] && $A(glue) ne ""} { set gluesel $A(glue) }
     # CA for an all-atom model, BB for Martini, GC for SIRAH: a coarse-grained
-    # model has no CA, and VMD's "protein" does not match its beads either.
-    set alignsel "(protein and name CA) or name BB GC"
+    # model has no CA, and VMD's "protein" does not match its beads either, so
+    # the residue name stands in for it -- otherwise a box of dipeptide probes
+    # carrying a BB bead each joins the fit and the protein wanders.
+    set cgpro [expr {[info commands ::CG::protein] ne "" ? [::CG::protein] : "none"}]
+    set alignsel "(protein and name CA) or (name BB GC and ($cgpro))"
     if {[info exists A(align)] && $A(align) ne ""} { set alignsel $A(align) }
     set stripsel "water or ions"
     if {[info exists A(strip)] && $A(strip) ne ""} { set stripsel $A(strip) }
@@ -360,9 +367,29 @@ proc vizard_main {} {
         }
         # the default glue names the ligand; an explicit --glue is kept as given
         set g $gluesel
-        if {$nl == 0 && !([info exists A(glue)] && $A(glue) ne "")} {
-            set g "protein"
+        set own [expr {[info exists A(glue)] && $A(glue) ne ""}]
+        # VMD's "protein" matches none of a coarse-grained model, so the
+        # protein's own beads are named by residue instead
+        set pro [expr {[lsearch -exact $cgmols $m] >= 0 ? $cgpro : "protein"}]
+        if {$nl == 0 && !$own} {
+            set g $pro
             puts "vizard: molid $m -- no ligand matched; gluing protein only"
+        } elseif {$nl > 0 && !$own} {
+            # A ligand of a few molecules is held together with the protein
+            # across the boundary.  A few hundred of them are not a ligand but
+            # co-solvent -- the dipeptide probes of a pocket search, say -- and
+            # holding those with the protein lets them outvote it over where
+            # the cluster goes, so they come out on one side of the box in one
+            # frame and the other side in the next.  Co-solvent is wrapped
+            # around the protein instead, like water, which is what it is for.
+            set ls [atomselect $m "$ligsel"]
+            set nm [llength [lsort -unique -integer [$ls get fragment]]]
+            $ls delete
+            if {$nm > $::vizard_cosolvent} {
+                set g $pro
+                puts "vizard: molid $m -- $nm ligand molecules: co-solvent, not\
+                      a ligand -- wrapped around the protein, not held with it"
+            }
         }
         glue_traj -molid $m -glue $g -align $alignsel -quiet [expr {[llength $mols] > 1}]
     }

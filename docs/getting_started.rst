@@ -21,9 +21,14 @@ What it does
 
 In a molecular dynamics simulation, a protein or ligand jumps across the box
 between frames because of periodic boundary conditions. viswizard makes
-molecules whole, keeps the ligand with its protein, wraps everything else, and
-fits the trajectory — in that order, since re-wrapping after a fit would undo
-it.
+molecules whole, keeps the ligand with its protein, puts the protein in the
+middle of the box and wraps everything else around it, then fits the
+trajectory — in that order, since re-wrapping after a fit would undo it.
+
+Each molecule is moved as a whole onto the image nearest the protein, so
+nothing is broken and nothing is left on the far side of the box. The protein
+in question is the whole molecule the fit selection sits on, so ``--align`` can
+name a single loop without dragging that centre into a corner.
 
 Examples
 --------
@@ -102,7 +107,9 @@ Options
      - ``protein or (<ligand>)``
      - ``polymer or (<ligand>)``
      - to hold more than the ligand together — a cofactor, a metal, a
-       second chain
+       second chain. More than 8 ligand molecules is taken as co-solvent
+       rather than a ligand: it is wrapped around the protein instead of held
+       with it, which is both what it is for and what stays still
    * - ``--align``, ``--fit``
      - ``(protein and name CA) or name BB GC``
      - ``(name CA and elem C) or (polymer and name BB+GC)``
