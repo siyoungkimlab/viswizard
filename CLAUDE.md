@@ -8,11 +8,27 @@ Two parallel implementations of the same tool, not one tool with two frontends:
 `vizard/` is Tcl for VMD, `pizard/` is Python for PyMOL. They deliberately
 duplicate behaviour rather than share a core, because the two viewers speak
 different selection languages (`resname LIG` / `resid 145 to 149` against
-`resn LIG` / `resi 145-149`) and expose different primitives. A change to one
-side almost always needs the mirror change on the other.
+`resn LIG` / `resi 145-149`) and expose different primitives.
 
 See `README.md` for what the tool does and `CONTRIBUTING.md` for the house
 rules on comments, the palette, and verifying what cannot be unit tested.
+
+## Keep the two sides in step
+
+Adding or changing a function on one side means doing the same on the other, in
+the same change, whether or not the request mentions it. A fix asked for in
+`pizard` is a fix still missing from `vizard`, and whoever reported it will hit
+it there next. This covers the behaviour itself, the in-session command and its
+alias, the matching docs page (`docs/pizard.rst` / `docs/vizard.rst`) and any
+table or default the two share.
+
+Verify both: a change proven in one viewer is unproven in the other, and the
+two have failed in different ways often enough that this is not a formality.
+
+Where a viewer genuinely cannot do the same thing -- VMD reads MAE but cannot
+write it, PyMOL traces beads with `cartoon_trace_atoms` and VMD has no
+equivalent -- do the nearest thing that works there and say plainly which side
+got what, rather than leaving the asymmetry unsaid.
 
 ## Commands
 
