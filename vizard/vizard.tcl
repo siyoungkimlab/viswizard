@@ -239,7 +239,20 @@ proc vizard_main {} {
             }
             # step loads every Nth frame: a long run at a short interval holds
             # frames that say the same thing, and every one of them is memory
-            foreach t $trajs { mol addfile $t step $stride waitfor all $m }
+            foreach t $trajs {
+                set had [molinfo $m get numframes]
+                mol addfile $t step $stride waitfor all $m
+                # VMD reports a mismatched atom count on stderr and carries on
+                # with the structure's own frame, so without this vizard said
+                # "ready -- 1 frames" and the trajectory was simply not there.
+                if {[molinfo $m get numframes] <= $had} {
+                    error "no frames loaded from [file tail $t] -- the\
+                           structure has [molinfo $m get numatoms] atoms and\
+                           the trajectory does not match it (VMD prints the\
+                           trajectory's own count above).  Is it the\
+                           trajectory for this structure?"
+                }
+            }
             # frame 0 is the topology's own coordinates; drop it when a
             # trajectory was loaded on top
             if {[llength $trajs] && [molinfo $m get numframes] > 1} {

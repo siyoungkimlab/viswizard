@@ -37,6 +37,10 @@ Creates `~/.local/bin/vizard` and `~/.local/bin/pizard`, and writes a marked
 block into `~/.vmdrc` and `~/.pymolrc.py` so the in-session commands and the
 DMS/MAE handlers exist everywhere. Re-running it is safe.
 
+The two commands are generated, not symlinked, so re-run `install.sh` after
+updating the checkout — otherwise `git pull` leaves you on the old wrappers
+while the rest of the tool has moved.
+
 ## What it does
 
 In a molecular dynamics simulation, a protein or ligand jumps across the box

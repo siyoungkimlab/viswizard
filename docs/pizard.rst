@@ -181,6 +181,13 @@ Add a function key too if you want one:
 ``browse off`` puts back whatever those were bound to. Left and right are left
 alone throughout, so they keep stepping trajectory frames.
 
+Trajectories that do not match
+------------------------------
+
+A trajectory whose atom count differs from the structure's loads nothing.
+PyMOL raises on it, and pizard stops with the file, PyMOL's own reason and the
+structure's atom count, rather than leaving a session holding one state.
+
 Speed
 -----
 

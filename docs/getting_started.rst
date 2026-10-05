@@ -14,7 +14,8 @@ Install
 
 That creates ``~/.local/bin/vizard`` and ``~/.local/bin/pizard``, and registers
 the in-session commands and the DMS/MAE handlers with VMD and PyMOL.
-Re-running it is safe.
+Re-running it is safe — and necessary after updating the checkout, since the
+two commands are generated rather than symlinked.
 
 What it does
 ------------
