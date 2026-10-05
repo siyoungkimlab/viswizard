@@ -232,6 +232,11 @@ both served whichever had been converted last — silently, since the staleness
 check only compares times and the older file looks up to date against an entry
 written for its namesake.
 
+If a trajectory's atom count does not match the structure, VMD says so on
+stderr and then carries on with the structure's own single frame — which read
+as ``ready -- 1 frames`` and a trajectory that was simply not there. vizard
+stops instead, naming the file and the structure's atom count.
+
 Crystal structures
 ------------------
 

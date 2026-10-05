@@ -328,7 +328,22 @@ def main(argv=None):
             name = created[0]
         for t in trajs:
             # state=1 overwrites the topology frame; interval loads every Nth
-            cmd.load_traj(t, name, state=1, interval=max(1, int(o.stride)))
+            had = cmd.count_states(name)
+            try:
+                cmd.load_traj(t, name, state=1, interval=max(1, int(o.stride)))
+            except Exception as e:
+                # PyMOL says only "Could not load trajectory", and the usual
+                # reason is that it belongs to another structure
+                raise SystemExit(
+                    "pizard: no frames loaded from %s -- %s.  The structure"
+                    " has %d atoms; does the trajectory match it?  Is it the"
+                    " trajectory for this structure?"
+                    % (os.path.basename(t), str(e).strip().rstrip("."),
+                       cmd.count_atoms(name)))
+            if cmd.count_states(name) < had:
+                raise SystemExit(
+                    "pizard: %s left %s with fewer states than it had"
+                    % (os.path.basename(t), name))
         _drop_coordless(name)
         objs.append(name)
         print("pizard: %-16s %6d atoms, %3d states" %
