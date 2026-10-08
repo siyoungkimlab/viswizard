@@ -257,6 +257,17 @@ PDB or GRO is read by PyMOL itself, before pizard sees it, so such a model
 gets its elements, its cartoon and ``cealign``, but not ``align`` and
 ``super``.
 
+One more thing the trace needs: PyMOL breaks a cartoon wherever the residue
+number jumps, and a number is not a distance. A protease numbered as a
+chymotrypsin jumps all through — 1jbu's chain H goes 35 to 37, 129G to 134,
+170I to 175, eight times in all, with the two beads 2.9 to 3.7 Å apart each
+time — so at PyMOL's default the trace came out in pieces with stubs hanging
+off it. ``cartoon_gap_cutoff`` is raised on the object to carry it through.
+A real break does not depend on that setting: PyMOL draws one as dashes
+either way, so no trace claims a chain is whole when it is not. VMD needs
+none of this, drawing its coarse-grained trace from the bonds rather than
+from the numbering.
+
 The fit selection follows from the rename: ``(name CA and elem C) or (polymer
 and name BB+GC)`` — one bead per residue, which is what the fit and the
 sequence superposition want. The ``elem C`` half is what keeps a calcium ion,
