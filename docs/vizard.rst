@@ -154,8 +154,11 @@ VMD's cartoon styles are no use here: NewCartoon wants a full N/CA/C/O backbone,
 The fit, the trace, the bead bonding, ``vizard_matchmaker`` and the ligand
 ``vizard_reps`` falls back on are all restricted to the protein's own beads,
 named by residue — ``ALA``, ``LEU`` and the rest for Martini, ``sA``, ``sL``,
-``sHe`` for SIRAH, which names its residues its own way. VMD matches a
-``resname`` with its case, which is what keeps them apart from the dipeptide
+``sHe`` for SIRAH, which names its residues its own way, and CHARMM's ``HSD``,
+``HSE`` and ``HSP``, which is what Martini 2.2 writes for a histidine — without
+those three a thrombin came out as 308 of its 319 backbone beads, the other
+eleven left out of the trace and ``cgbonds`` then bonding across the gaps. VMD
+matches a ``resname`` with its case, which is what keeps them apart from the dipeptide
 probes of a pocket search: upper-cased, ``sS``, ``sT``, ``sW`` and ``sY`` are
 the probes ``SS``, ``ST``, ``SW`` and ``SY``. A pocket search fills the box with dipeptide probes carrying
 one ``BB`` bead each, and 420 of those drawn as licorice bury the trace the rep

@@ -159,6 +159,7 @@ def _build_ct(blk):
                 "name": get(row, "s_m_pdb_atom_name").strip(),
                 "resn": get(row, "s_m_pdb_residue_name").strip(),
                 "resi": get(row, "i_m_residue_number", "1").strip(),
+                "insertion": get(row, "s_m_insertion_code").strip(),
                 "chain": get(row, "s_m_chain_name").strip(),
                 "segi": get(row, "s_m_pdb_segment_name").strip(),
                 "b": float(get(row, "r_m_pdb_tfactor", "0") or 0),
@@ -190,6 +191,7 @@ def _build_ct(blk):
                 "name": pget(row, "s_ffio_atom_name").strip() or "Vrt",
                 "resn": pget(row, "s_ffio_pdb_residue_name").strip(),
                 "resi": pget(row, "i_ffio_residue_number", "1").strip(),
+                "insertion": "",
                 "chain": pget(row, "s_ffio_chain_name").strip(),
                 "segi": "", "b": 0.0, "q": 0.0, "formal_charge": 0,
             })
@@ -319,7 +321,7 @@ def load_mae(filename, object="", state=0, quiet=1, multiplex=-1, zoom=-1,
             at.symbol = a["elem"]
             at.name = a["name"] or a["elem"]
             at.resn = a["resn"]
-            at.resi = a["resi"]
+            at.resi = a["resi"] + a.get("insertion", "")
             at.chain = a["chain"]
             at.segi = a["segi"]
             at.b, at.q = a["b"], a["q"]

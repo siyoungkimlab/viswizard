@@ -202,10 +202,33 @@ def test_a_sirah_residue_is_written_as_the_name_pymol_knows():
     assert cg.standard_residue("sHd") == "HID"
     assert cg.standard_residue("sKa") == cg.standard_residue("sKm") == "LYS"
     assert cg.standard_residue("sSp") == "SER"
-    # and every one of them is a name PyMOL counts as protein
+    # the two cysteines SIRAH spells with codes that are not amino acids: sX a
+    # disulfide-bonded CYX, sZ a deprotonated CYM, which PyMOL refuses, so it
+    # is written as the plain CYS it otherwise is
+    assert cg.standard_residue("sX") == "CYX"
+    assert cg.standard_residue("sZ") == "CYS"
+    # and every one of them is a name PyMOL counts as protein -- none may come
+    # back None, which is what left a SIRAH protein with a hole at every
+    # cysteine
     for sirah in cg.SIRAH_RESIDUES:
-        std = cg.standard_residue(sirah)
-        assert std is None or std in cg.RESIDUES
+        assert cg.standard_residue(sirah) in cg.RESIDUES
+
+
+def test_a_charmm_histidine_is_written_as_the_name_pymol_knows():
+    """Martini 2.2 writes CHARMM's HSD, which PyMOL does not take for a
+    polymer -- so a Martini 2 protein arrived with a hole at every histidine:
+    beads marked hetatm, no backbone bead renamed CA, and a cartoon trace that
+    stepped over them."""
+    assert cg.is_protein_residue("HSD")
+    assert cg.standard_residue("HSD") == "HID"
+    assert cg.standard_residue("HSE") == "HIE"
+    assert cg.standard_residue("HSP") == "HIP"
+    # the backbone bead of one is renamed, which is what puts it in the trace
+    assert cg.pymol_atom("BB", "HSD") == ("CA", "C", 0)
+    assert cg.pymol_atom("SC1", "HSD") == ("SC1", "C", 0)
+    # the charge states PyMOL refuses go to the residue they are a state of
+    assert cg.standard_residue("CYM") == "CYS"
+    assert cg.standard_residue("LSN") == cg.standard_residue("LYN") == "LYS"
 
 
 def test_nothing_else_is_translated():

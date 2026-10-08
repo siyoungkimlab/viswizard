@@ -97,3 +97,61 @@ def test_dump_reader(tmp_path):
     assert len(d["atoms"]) == 2
     assert d["bonds"] == [(0, 1, 1)]
     assert d["cell"][0][0] == 30.0
+
+
+def _chymotrypsin():
+    """Four residues numbered the way a chymotrypsin is: 60, 60A, 60B, 61."""
+    rows = [(60, ""), (60, "A"), (60, "B"), (61, "")]
+    return [dict(anum=6, elem="C", name="CA", resname="ALA", resid=r,
+                 insertion=code, chain="H", segid="", x=3.8 * k, y=0.0, z=0.0,
+                 mass=12.0, charge=0.0, formal_charge=0)
+            for k, (r, code) in enumerate(rows)], [], None
+
+
+def test_an_insertion_code_survives_a_dms(tmp_path):
+    """Without it, 60, 60A and 60B are one residue with three backbone beads
+    in it, and a viewer traces a knot through them."""
+    atoms, bonds, cell = _chymotrypsin()
+    p = str(tmp_path / "s.dms")
+    formats.write_dms(p, atoms, bonds, cell)
+    got = formats.read_dms(p)
+    assert [(a["resid"], a["insertion"]) for a in got["atoms"]] == \
+           [(60, ""), (60, "A"), (60, "B"), (61, "")]
+
+
+def test_an_insertion_code_survives_a_mae(tmp_path):
+    atoms, bonds, cell = _chymotrypsin()
+    p = str(tmp_path / "s.mae")
+    formats.write_mae(p, atoms, bonds, cell)
+    assert "s_m_insertion_code" in open(p).read()
+    d = formats._read_any(p)
+    assert [(a["resid"], a["insertion"]) for a in d["atoms"]] == \
+           [(60, ""), (60, "A"), (60, "B"), (61, "")]
+
+
+def test_an_insertion_code_survives_dms_to_mae_to_dms(tmp_path):
+    atoms, bonds, cell = _chymotrypsin()
+    a, b, c = (str(tmp_path / n) for n in ("a.dms", "b.mae", "c.dms"))
+    formats.write_dms(a, atoms, bonds, cell)
+    formats.convert(a, b)
+    formats.convert(b, c)
+    assert [(x["resid"], x["insertion"]) for x in formats.read_dms(c)["atoms"]] == \
+           [(60, ""), (60, "A"), (60, "B"), (61, "")]
+
+
+def test_the_dump_carries_an_insertion_code_and_an_older_one_still_reads(tmp_path):
+    p = tmp_path / "d.vizdump"
+    p.write_text("\t".join(["ATOM", "6", "CA", "ALA", "60", "H", "",
+                            "0.0", "0.0", "0.0", "12.0", "0.0", "A"]) + "\n"
+                 + "\t".join(["ATOM", "6", "CA", "ALA", "61", "H", "",
+                              "3.8", "0.0", "0.0", "12.0", "0.0"]) + "\n")
+    d = formats.read_dump(str(p))
+    assert [(a["resid"], a["insertion"]) for a in d["atoms"]] == [(60, "A"), (61, "")]
+
+
+@pytest.mark.parametrize("resi,want", [
+    ("60A", ("60", "A")), ("60", ("60", "")), ("-3", ("-3", "")),
+    (" 7B ", ("7", "B")), ("", ("", "")), (None, ("", "")),
+])
+def test_pymol_keeps_the_insertion_code_on_the_residue_number(resi, want):
+    assert formats._resi(resi) == want

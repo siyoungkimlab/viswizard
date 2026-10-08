@@ -236,6 +236,17 @@ get guide atoms, and ``align``, ``super``, ``cealign`` and the GUI's
 coarse-grained model or against a structure you fetched. The bead's own name
 is kept in ``text_type``, so ``iterate`` still tells you what it was.
 
+A residue PyMOL does not know by name is not a polymer to it whatever else it
+is told, so a name it does not know is written as one it does, with the
+original kept in ``custom``. SIRAH's ``sL`` goes in as ``LEU``; its ``sX`` and
+``sZ``, a disulfide-bonded and a deprotonated cysteine whose letters are not
+amino acid codes, as ``CYX`` and ``CYS``. CHARMM's histidines go in as Amber's
+— ``HSD`` as ``HID``, ``HSE`` as ``HIE``, ``HSP`` as ``HIP`` — which keeps the
+tautomer and is a name PyMOL has. Martini 2.2 writes ``HSD`` for every
+histidine, so without that a Martini 2 protein arrived with a hole at each one:
+beads marked hetatm, no backbone bead renamed ``CA``, and a cartoon trace that
+stepped straight over them.
+
 This has to happen while the file is being read. PyMOL settles what each
 residue is as it reads it and does not revisit the question, so a bead that
 arrived with a bogus element is not part of a protein and cannot be made into

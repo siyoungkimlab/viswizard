@@ -30,6 +30,21 @@ ELEMENTS = (
 _SYM2NUM = {s.upper(): i for i, s in enumerate(ELEMENTS)}
 
 
+def _resi(resi):
+    """Split PyMOL's resi, "60A", into ("60", "A").
+
+    PyMOL keeps the insertion code on the end of the residue number rather
+    than in a field of its own, so this is how it comes back out.  A number
+    that is not one ("" from a selection PyMOL made up) gives ("", "").
+    """
+    held = str(resi or "").strip()
+    k = 1 if held[:1] == "-" else 0
+    while k < len(held) and held[k].isdigit():
+        k += 1
+    number = held[:k]
+    return (number if number.lstrip("-").isdigit() else "", held[k:].strip())
+
+
 # --------------------------------------------------------------------- DMS
 def read_dms(path):
     """-> {'atoms': [...], 'bonds': [(i, j, order)], 'cell': 3x3 or None}"""
@@ -55,6 +70,7 @@ def read_dms(path):
             "name": (col(row, "name", "") or "").strip(),
             "resname": (col(row, "resname", "") or "").strip(),
             "resid": int(col(row, "resid", 1) or 1),
+            "insertion": (col(row, "insertion", "") or "").strip(),
             "chain": (col(row, "chain", "") or "").strip(),
             "segid": (col(row, "segid", "") or "").strip(),
             "x": float(col(row, "x", 0.0) or 0.0),
@@ -94,15 +110,16 @@ def write_dms(path, atoms, bonds, cell=None):
     con.execute("""create table particle (
         id integer primary key, anum integer, name text, x float, y float,
         z float, vx float, vy float, vz float, resname text, resid integer,
-        chain text, segid text, mass float, charge float,
+        insertion text, chain text, segid text, mass float, charge float,
         formal_charge integer)""")
     con.executemany(
         "insert into particle (id,anum,name,x,y,z,vx,vy,vz,resname,resid,"
-        "chain,segid,mass,charge,formal_charge) "
-        "values (?,?,?,?,?,?,0,0,0,?,?,?,?,?,?,?)",
+        "insertion,chain,segid,mass,charge,formal_charge) "
+        "values (?,?,?,?,?,?,0,0,0,?,?,?,?,?,?,?,?)",
         [(i, a.get("anum", 0), a.get("name", ""), a["x"], a["y"], a["z"],
-          a.get("resname", ""), a.get("resid", 1), a.get("chain", ""),
-          a.get("segid", ""), a.get("mass", 0.0), a.get("charge", 0.0),
+          a.get("resname", ""), a.get("resid", 1), a.get("insertion", ""),
+          a.get("chain", ""), a.get("segid", ""), a.get("mass", 0.0),
+          a.get("charge", 0.0),
           a.get("formal_charge", 0)) for i, a in enumerate(atoms)])
     con.execute("create table bond (p0 integer, p1 integer, 'order' integer)")
     con.executemany("insert into bond values (?,?,?)",
@@ -148,16 +165,17 @@ def write_mae(path, atoms, bonds, cell=None, title="vizard"):
         out.append("  " + (_q(v) if k.startswith("s_") else str(v)))
 
     acols = ["i_m_atomic_number", "r_m_x_coord", "r_m_y_coord", "r_m_z_coord",
-             "i_m_residue_number", "s_m_pdb_residue_name", "s_m_pdb_atom_name",
-             "s_m_chain_name", "s_m_pdb_segment_name", "i_m_formal_charge",
-             "r_m_charge1"]
+             "i_m_residue_number", "s_m_insertion_code", "s_m_pdb_residue_name",
+             "s_m_pdb_atom_name", "s_m_chain_name", "s_m_pdb_segment_name",
+             "i_m_formal_charge", "r_m_charge1"]
     out.append("  m_atom[%d] {" % len(atoms))
     for c in acols:
         out.append("    " + c)
     out.append("    :::")
     for i, a in enumerate(atoms, 1):
-        out.append("    %d %d %.6f %.6f %.6f %d %s %s %s %s %d %.6f" % (
+        out.append("    %d %d %.6f %.6f %.6f %d %s %s %s %s %s %d %.6f" % (
             i, a.get("anum", 0), a["x"], a["y"], a["z"], a.get("resid", 1),
+            _q(a.get("insertion", "") or " "),
             _q(a.get("resname", "")), _q(a.get("name", "")),
             _q(a.get("chain", "")), _q(a.get("segid", "")),
             a.get("formal_charge", 0), a.get("charge", 0.0)))
@@ -193,6 +211,7 @@ def _read_any(path):
                           "elem": a["elem"], "name": a["name"],
                           "resname": a["resn"],
                           "resid": int(a["resi"] or 1) if str(a["resi"]).lstrip("-").isdigit() else 1,
+                          "insertion": a.get("insertion", ""),
                           "chain": a["chain"], "segid": a["segi"],
                           "x": a["coord"][0], "y": a["coord"][1], "z": a["coord"][2],
                           "mass": 0.0, "charge": 0.0,
@@ -227,7 +246,10 @@ def read_dump(path):
                               "resid": int(float(f[4])), "chain": f[5], "segid": f[6],
                               "x": float(f[7]), "y": float(f[8]), "z": float(f[9]),
                               "mass": float(f[10]), "charge": float(f[11]),
-                              "formal_charge": 0})
+                              "formal_charge": 0,
+                              # vizard grew the insertion code late; an older
+                              # dump simply has one field fewer
+                              "insertion": f[12].strip() if len(f) > 12 else ""})
             elif f[0] == "BOND":
                 bonds.append((int(f[1]), int(f[2]), int(float(f[3])) or 1))
     return {"atoms": atoms, "bonds": bonds, "cell": cell}
@@ -263,10 +285,12 @@ def _model_to_lists(obj_or_sel):
         name, was = a.name, (getattr(a, "text_type", "") or "").strip()
         if name.strip().upper() == _cg.CA and was.upper() in _cg.BACKBONE:
             name = was
+        number, insertion = _resi(a.resi)
         atoms.append({
             "anum": _SYM2NUM.get(sym.upper(), 0), "elem": sym,
             "name": name, "resname": a.resn,
-            "resid": int(a.resi) if str(a.resi).lstrip("-").isdigit() else 1,
+            "resid": int(number) if number else 1,
+            "insertion": insertion,
             "chain": a.chain, "segid": a.segi,
             "x": a.coord[0], "y": a.coord[1], "z": a.coord[2],
             "mass": getattr(a, "get_mass", lambda: 0.0)() if hasattr(a, "get_mass") else 0.0,
@@ -312,7 +336,7 @@ def load_dms(filename, object="", state=0, quiet=1, zoom=-1, _self=None):
         at.symbol = a["elem"]
         at.name = a["name"] or a["elem"]
         at.resn, at.chain, at.segi = a["resname"], a["chain"], a["segid"]
-        at.resi = str(a["resid"])
+        at.resi = str(a["resid"]) + (a.get("insertion", "") or "")
         at.formal_charge = a["formal_charge"]
         at.partial_charge = a["charge"]
         if coarse:

@@ -70,7 +70,21 @@ CA = "CA"
 # model, and neither does anything built on it.
 RESIDUES = set(
     "ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE PRO SER THR TRP "
-    "TYR VAL HID HIE HIP HISD HISE HISH CYX CYM ACE NME NMA".split())
+    "TYR VAL HID HIE HIP HISD HISE HISH CYX CYM ACE NME NMA "
+    "HSD HSE HSP ASPP GLUP LSN ASH GLH LYN".split())
+
+# What to call a residue PyMOL will not call a polymer, so that it will.
+# PyMOL knows the Amber spelling of a histidine tautomer (HID, HIE, HIP) and
+# not the CHARMM one (HSD, HSE, HSP), which is what Martini 2.2 writes -- so a
+# Martini 2 protein arrives with holes in it, one per histidine: beads marked
+# hetatm, no backbone bead renamed CA, and a cartoon trace that steps over
+# them.  The name on the left is kept in `custom`; only what PyMOL is told
+# changes, and the tautomer with it where PyMOL has a name for one.
+KNOWN_AS = {
+    "HSD": "HID", "HSE": "HIE", "HSP": "HIP",   # CHARMM's histidines
+    "CYM": "CYS", "LSN": "LYS", "LYN": "LYS",   # charge states PyMOL refuses
+    "ASH": "ASP", "GLH": "GLU",
+}
 
 # SIRAH names its residues for itself -- sL, sK, sHe -- so a SIRAH protein
 # matches nothing above and arrives as no protein at all: no backbone to look
@@ -102,12 +116,16 @@ ONE_LETTER = dict(zip(
     "ALA CYS ASP GLU PHE GLY HIS ILE LYS LEU MET ASN PRO GLN ARG SER THR VAL "
     "TRP TYR".split()))
 
-# The histidine tautomers, which have three-letter names of their own.
-SIRAH_EXACT = {"sHd": "HID", "sHe": "HIE"}
+# The residues whose second letter is not a one-letter code: the histidine
+# tautomers, which have three-letter names of their own, and the two cysteines
+# SIRAH spells with the codes X and Z -- sX a disulfide-bonded CYX, sZ a
+# deprotonated CYM, which PyMOL does not take for a polymer, so it is written
+# as the plain CYS it otherwise is.
+SIRAH_EXACT = {"sHd": "HID", "sHe": "HIE", "sX": "CYX", "sZ": "CYS"}
 
 
 def standard_residue(resname):
-    """The three-letter name for a SIRAH residue, or None if it is not one.
+    """The name PyMOL knows this residue by, or None when its own will do.
 
     PyMOL works out what a residue is from names it knows, and it does not know
     sL: it will not call that a polymer whatever else it is told, so "polymer"
@@ -116,6 +134,9 @@ def standard_residue(resname):
     sL *is* a leucine, writing it as LEU on the way in is what makes PyMOL treat
     the model as the protein it is -- the same move as calling its backbone bead
     CA, one level up.  VMD needs none of this and keeps SIRAH's own names.
+
+    The same holds for a name PyMOL simply spells differently: CHARMM's HSD is
+    the HID it knows, and a Martini 2 protein is full of them.
     """
     held = str(resname).strip()
     if held in SIRAH_EXACT:
@@ -123,7 +144,7 @@ def standard_residue(resname):
     if (len(held) >= 2 and held[0] == "s" and held[1] in ONE_LETTER
             and held in SIRAH_RESIDUES):
         return ONE_LETTER[held[1]]
-    return None
+    return KNOWN_AS.get(held.upper())
 
 
 def is_protein_residue(resname):

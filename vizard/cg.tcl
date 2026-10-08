@@ -32,8 +32,12 @@ set ::CG::MARKERS {BB GC GN SC1}
 # N/CA/C/O backbone and matches none of a coarse-grained model, so the residue
 # name is what is left to go on -- and it is what tells the protein's own beads
 # from a box of dipeptide probes (WW, FY, EE), whose names no viewer knows.
+# CHARMM's histidines (HSD, HSE, HSP) are on it because that is what Martini
+# 2.2 writes, and a protein full of them would otherwise be a protein with a
+# hole at every histidine.
 set ::CG::RESIDUES {ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE
-    PRO SER THR TRP TYR VAL HID HIE HIP HISD HISE HISH CYX CYM ACE NME NMA}
+    PRO SER THR TRP TYR VAL HID HIE HIP HISD HISE HISH CYX CYM ACE NME NMA
+    HSD HSE HSP ASPP GLUP LSN ASH GLH LYN}
 # SIRAH names its residues for itself -- sL, sK, sHe -- so a SIRAH protein
 # matches none of the above.  Their case is their own: upper-cased, sS, sT, sW
 # and sY are the dipeptide probes SS, ST, SW and SY, and a box of probes would
