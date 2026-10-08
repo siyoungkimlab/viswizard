@@ -65,9 +65,10 @@ proc vizard_write {seltext out {molid top}} {
     puts $fh "CELL\t[join $cell \t]"
     foreach i $idx anum [$s get atomicnumber] nm [$s get name] rn [$s get resname] \
             ri [$s get resid] ch [$s get chain] sg [$s get segname] \
-            xyz [$s get {x y z}] ms [$s get mass] q [$s get charge] {
+            xyz [$s get {x y z}] ms [$s get mass] q [$s get charge] \
+            ins [$s get insertion] {
         lassign $xyz x y z
-        puts $fh "ATOM\t$anum\t$nm\t$rn\t$ri\t$ch\t$sg\t$x\t$y\t$z\t$ms\t$q"
+        puts $fh "ATOM\t$anum\t$nm\t$rn\t$ri\t$ch\t$sg\t$x\t$y\t$z\t$ms\t$q\t[string trim $ins]"
     }
     set nb 0
     foreach i $idx bl [$s getbonds] ol [$s getbondorders] {

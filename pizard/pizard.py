@@ -63,6 +63,14 @@ COSOLVENT = 8
 # Thrown away right after loading: waters and ions, which are never drawn.
 DEFAULT_STRIP = "solvent or inorganic"
 
+# How large a jump in the residue numbering the coarse-grained trace carries
+# on through (PyMOL's default is 10, and it breaks the tube at anything more).
+# A number is not a distance: a chymotrypsin's numbering jumps by five with
+# the two beads 3.4 A apart.  Set high because a real break does not rely on
+# this -- PyMOL draws one as dashes either way -- so the only thing a low
+# cutoff buys is a trace in pieces.
+GAP_CUTOFF = 1000
+
 HELP = """
 pizard -- glue a ligand to its protein across PBC, align, and set up a view,
 in PyMOL.  (vizard is the same thing for VMD.)
@@ -633,6 +641,15 @@ def main(argv=None):
             # fetched later would come out as a tube through all its atoms
             cmd.set("cartoon_trace_atoms", 1, name)
             cmd.set("cartoon_tube_radius", 1.0, name)
+            # and PyMOL breaks a cartoon wherever the residue number jumps,
+            # which in a protease numbered as a chymotrypsin is not a gap in
+            # the chain at all: 1jbu's chain H jumps eight times -- 35 to 37,
+            # 129G to 134, 170I to 175 -- with the beads 2.9 to 3.7 A apart
+            # each time, so the trace came out in pieces with stubs hanging
+            # off it.  Raising the cutoff bridges a jump; a real break is
+            # still drawn, as the dashes PyMOL draws for one, so nothing
+            # claims a chain is whole when it is not.
+            cmd.set("cartoon_gap_cutoff", GAP_CUTOFF, name)
             trace = "(%s) and name %s" % (name, _cg.CA)
             cmd.cartoon("tube", trace)
             cmd.show("cartoon", trace)

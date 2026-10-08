@@ -236,6 +236,17 @@ get guide atoms, and ``align``, ``super``, ``cealign`` and the GUI's
 coarse-grained model or against a structure you fetched. The bead's own name
 is kept in ``text_type``, so ``iterate`` still tells you what it was.
 
+A residue PyMOL does not know by name is not a polymer to it whatever else it
+is told, so a name it does not know is written as one it does, with the
+original kept in ``custom``. SIRAH's ``sL`` goes in as ``LEU``; its ``sX`` and
+``sZ``, a disulfide-bonded and a deprotonated cysteine whose letters are not
+amino acid codes, as ``CYX`` and ``CYS``. CHARMM's histidines go in as Amber's
+— ``HSD`` as ``HID``, ``HSE`` as ``HIE``, ``HSP`` as ``HIP`` — which keeps the
+tautomer and is a name PyMOL has. Martini 2.2 writes ``HSD`` for every
+histidine, so without that a Martini 2 protein arrived with a hole at each one:
+beads marked hetatm, no backbone bead renamed ``CA``, and a cartoon trace that
+stepped straight over them.
+
 This has to happen while the file is being read. PyMOL settles what each
 residue is as it reads it and does not revisit the question, so a bead that
 arrived with a bogus element is not part of a protein and cannot be made into
@@ -245,6 +256,17 @@ MAE readers therefore do it in place, as the model is built. A coarse-grained
 PDB or GRO is read by PyMOL itself, before pizard sees it, so such a model
 gets its elements, its cartoon and ``cealign``, but not ``align`` and
 ``super``.
+
+One more thing the trace needs: PyMOL breaks a cartoon wherever the residue
+number jumps, and a number is not a distance. A protease numbered as a
+chymotrypsin jumps all through — 1jbu's chain H goes 35 to 37, 129G to 134,
+170I to 175, eight times in all, with the two beads 2.9 to 3.7 Å apart each
+time — so at PyMOL's default the trace came out in pieces with stubs hanging
+off it. ``cartoon_gap_cutoff`` is raised on the object to carry it through.
+A real break does not depend on that setting: PyMOL draws one as dashes
+either way, so no trace claims a chain is whole when it is not. VMD needs
+none of this, drawing its coarse-grained trace from the bonds rather than
+from the numbering.
 
 The fit selection follows from the rename: ``(name CA and elem C) or (polymer
 and name BB+GC)`` — one bead per residue, which is what the fit and the
