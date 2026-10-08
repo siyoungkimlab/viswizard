@@ -70,20 +70,53 @@ CA = "CA"
 # model, and neither does anything built on it.
 RESIDUES = set(
     "ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE PRO SER THR TRP "
-    "TYR VAL HID HIE HIP HISD HISE HISH CYX CYM ACE NME NMA "
-    "HSD HSE HSP ASPP GLUP LSN ASH GLH LYN".split())
+    "TYR VAL "
+    # the spellings of a protonation state, a modification or a cap that a
+    # force field, a preparation tool or a crystal structure writes instead
+    "HID HIE HIP HSD HSE HSP HISD HISE HISH NEP "
+    "CYX CYM CSS CSO CSD CME OCS SEC "
+    "ASH ASPP GLH GLUP PCA "
+    "LYN LSN ALY MLY MLZ M2L M3L KCX LLP PYL ORN DAB "
+    "AR0 DA2 CIR "
+    "SEP S1P SP1 SP2 PHS SAC TPO T1P TP1 TP2 PHT "
+    "PTR TYM TYS Y1P Y2P PHY "
+    "HYP MLE NLE ABA AIB MSE "
+    "ACE NME NMA".split())
 
 # What to call a residue PyMOL will not call a polymer, so that it will.
-# PyMOL knows the Amber spelling of a histidine tautomer (HID, HIE, HIP) and
-# not the CHARMM one (HSD, HSE, HSP), which is what Martini 2.2 writes -- so a
-# Martini 2 protein arrives with holes in it, one per histidine: beads marked
+# PyMOL knows a few of these already -- HID, CYX, MSE, PTR -- and refuses the
+# rest, so a protein carrying one arrives with a hole in it: beads marked
 # hetatm, no backbone bead renamed CA, and a cartoon trace that steps over
-# them.  The name on the left is kept in `custom`; only what PyMOL is told
-# changes, and the tautomer with it where PyMOL has a name for one.
+# them.  Martini 2.2 writes CHARMM's HSD for every histidine, which is how
+# this was found.  Each name goes in as the residue it is a form of, keeping
+# the tautomer where PyMOL has a name for one; the original is kept in
+# `custom`, so nothing is lost but what PyMOL is told.
 KNOWN_AS = {
-    "HSD": "HID", "HSE": "HIE", "HSP": "HIP",   # CHARMM's histidines
-    "CYM": "CYS", "LSN": "LYS", "LYN": "LYS",   # charge states PyMOL refuses
-    "ASH": "ASP", "GLH": "GLU",
+    # CHARMM's histidines, and a phosphohistidine
+    "HSD": "HID", "HSE": "HIE", "HSP": "HIP", "NEP": "HIS",
+    # cysteines: a charge state, CHARMM's own disulfide, and the oxidised and
+    # alkylated ones a crystal structure carries
+    "CYM": "CYS", "CSS": "CYS", "CSO": "CYS", "CSD": "CYS", "CME": "CYS",
+    "OCS": "CYS", "SEC": "CYS",
+    # the neutral acids, and pyroglutamate
+    "ASH": "ASP", "GLH": "GLU", "PCA": "GLU",
+    # lysines: neutral, acetylated, methylated once to three times,
+    # carboxylated, the pyridoxal adduct, pyrrolysine, and two shorter ones
+    "LYN": "LYS", "LSN": "LYS", "ALY": "LYS", "MLY": "LYS", "MLZ": "LYS",
+    "M2L": "LYS", "M3L": "LYS", "KCX": "LYS", "LLP": "LYS", "PYL": "LYS",
+    "ORN": "LYS", "DAB": "LYS",
+    # arginines: neutral, dimethylated, and citrulline
+    "AR0": "ARG", "DA2": "ARG", "CIR": "ARG",
+    # phosphoserine and phosphothreonine, as each force field spells them
+    "SEP": "SER", "S1P": "SER", "SP1": "SER", "SP2": "SER", "PHS": "SER",
+    "SAC": "SER",
+    "TPO": "THR", "T1P": "THR", "TP1": "THR", "TP2": "THR", "PHT": "THR",
+    # tyrosines: deprotonated, sulfated, and the phosphorylated ones that are
+    # not called PTR, which PyMOL knows
+    "TYM": "TYR", "TYS": "TYR", "Y1P": "TYR", "Y2P": "TYR", "PHY": "TYR",
+    # hydroxyproline, N-methyl leucine, norleucine, and two small
+    # non-standard alanines
+    "HYP": "PRO", "MLE": "LEU", "NLE": "LEU", "ABA": "ALA", "AIB": "ALA",
 }
 
 # SIRAH names its residues for itself -- sL, sK, sHe -- so a SIRAH protein

@@ -32,12 +32,22 @@ set ::CG::MARKERS {BB GC GN SC1}
 # N/CA/C/O backbone and matches none of a coarse-grained model, so the residue
 # name is what is left to go on -- and it is what tells the protein's own beads
 # from a box of dipeptide probes (WW, FY, EE), whose names no viewer knows.
-# CHARMM's histidines (HSD, HSE, HSP) are on it because that is what Martini
-# 2.2 writes, and a protein full of them would otherwise be a protein with a
-# hole at every histidine.
+# It carries the spellings of a protonation state, a modification or a cap
+# that a force field, a preparation tool or a crystal structure writes instead
+# -- CHARMM's histidines (HSD, HSE, HSP) because that is what Martini 2.2
+# writes, and a protein full of them would otherwise be a protein with a hole
+# at every histidine.
 set ::CG::RESIDUES {ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE
-    PRO SER THR TRP TYR VAL HID HIE HIP HISD HISE HISH CYX CYM ACE NME NMA
-    HSD HSE HSP ASPP GLUP LSN ASH GLH LYN}
+    PRO SER THR TRP TYR VAL
+    HID HIE HIP HSD HSE HSP HISD HISE HISH NEP
+    CYX CYM CSS CSO CSD CME OCS SEC
+    ASH ASPP GLH GLUP PCA
+    LYN LSN ALY MLY MLZ M2L M3L KCX LLP PYL ORN DAB
+    AR0 DA2 CIR
+    SEP S1P SP1 SP2 PHS SAC TPO T1P TP1 TP2 PHT
+    PTR TYM TYS Y1P Y2P PHY
+    HYP MLE NLE ABA AIB MSE
+    ACE NME NMA}
 # SIRAH names its residues for itself -- sL, sK, sHe -- so a SIRAH protein
 # matches none of the above.  Their case is their own: upper-cased, sS, sT, sW
 # and sY are the dipeptide probes SS, ST, SW and SY, and a box of probes would
